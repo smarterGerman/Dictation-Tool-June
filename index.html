@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dictation Tool</title>
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/player.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+    <div class="container">
+        <div id="player-container" class="player-container">
+            <h1>Dictation Player</h1>
+            
+            <div id="audio-player" class="audio-player">
+                <!-- Audio element will be inserted dynamically -->
+            </div>
+            
+            <div id="controls" class="controls">
+                <button id="play-btn" class="control-btn">Play</button>
+                <button id="pause-btn" class="control-btn">Pause</button>
+                <div class="progress-container">
+                    <div id="progress-bar" class="progress-bar">
+                        <div id="progress" class="progress"></div>
+                    </div>
+                    <div id="time-display" class="time-display">00:00 / 00:00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

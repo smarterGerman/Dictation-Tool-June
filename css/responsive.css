@@ -1,0 +1,28 @@
+/* Responsive design styles */
+@media (min-width: 768px) {
+    .controls {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .control-btn {
+        margin-right: 10px;
+    }
+    
+    .progress-container {
+        flex: 1;
+        margin-left: 10px;
+    }
+}
+
+/* Ensure player fits in iframe */
+@media (max-width: 500px) {
+    .container {
+        padding: 10px;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+    }
+}

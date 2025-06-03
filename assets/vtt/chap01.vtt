@@ -1,0 +1,16 @@
+WEBVTT
+
+NOTE
+This is a sample VTT file for chapter 1.
+
+00:00:00.000 --> 00:00:03.500
+This is the first sentence of the dictation.
+
+00:00:04.000 --> 00:00:08.200
+Here is the second sentence to transcribe.
+
+00:00:09.000 --> 00:00:14.500
+The third sentence contains more complex words and structure.
+
+00:00:15.000 --> 00:00:20.000
+Finally, this is the last sentence of this sample dictation.

@@ -16,6 +16,13 @@ export function initPlayer(audioSrc) {
     audio.src = audioSrc;
     audio.preload = 'metadata';
     
+    // Add track element for VTT (optional, mostly for browsers that support native tracks)
+    const track = document.createElement('track');
+    track.kind = 'metadata';
+    track.src = audioSrc.replace('audio/', 'vtt/').replace('.mp3', '.vtt');
+    track.default = true;
+    audio.appendChild(track);
+    
     // Make sure container is empty before appending
     audioContainer.innerHTML = '';
     audioContainer.appendChild(audio);

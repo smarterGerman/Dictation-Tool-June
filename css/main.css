@@ -22,3 +22,19 @@ h1 {
     text-align: center;
     margin-bottom: 20px;
 }
+
+.error-message {
+    background-color: #ffebee;
+    border: 1px solid #ef9a9a;
+    border-radius: 4px;
+    padding: 20px;
+    margin: 20px 0;
+    color: #c62828;
+    text-align: center;
+}
+
+.error-message h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}

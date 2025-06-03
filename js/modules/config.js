@@ -1,5 +1,6 @@
 // Configuration options and constants
 export const defaultAudio = 'assets/audio/chap01.mp3';
+export const defaultVTT = 'assets/vtt/chap01.vtt';
 
 export const config = {
     playerContainerId: 'player-container',
@@ -9,5 +10,15 @@ export const config = {
     pauseBtnId: 'pause-btn',
     progressBarId: 'progress-bar',
     progressId: 'progress',
-    timeDisplayId: 'time-display'
+    timeDisplayId: 'time-display',
+    
+    // New configurations for VTT integration
+    segmentContainerId: 'segment-container',
+    prevSegmentBtnId: 'prev-segment-btn',
+    nextSegmentBtnId: 'next-segment-btn',
+    replaySegmentBtnId: 'replay-segment-btn',
+    segmentIndicatorId: 'segment-indicator',
+    
+    // Default tolerance for segment boundaries (in seconds)
+    segmentTimeTolerance: 0.2
 };

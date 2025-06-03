@@ -18,7 +18,7 @@ export function setupUI(audio, segmentState) {
     
     // Play button event
     playBtn.addEventListener('click', () => {
-        audio.play();
+        playCurrentSegment(audio);
     });
     
     // Pause button event

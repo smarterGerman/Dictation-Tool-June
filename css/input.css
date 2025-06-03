@@ -1,0 +1,73 @@
+/* Input field styles for the dictation tool */
+
+.input-container {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f8f8;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: none; /* Hidden by default, will be shown after segment ends */
+}
+
+.transcription-input {
+    width: 100%;
+    padding: 12px;
+    font-family: 'Arial', sans-serif;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+    min-height: 100px;
+    margin-bottom: 10px;
+    transition: border-color 0.3s;
+}
+
+.transcription-input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.submit-btn {
+    background-color: #2ecc71;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.submit-btn:hover {
+    background-color: #27ae60;
+}
+
+.submit-btn:active {
+    transform: translateY(1px);
+}
+
+/* Placeholder styling */
+.transcription-input::placeholder {
+    color: #aaa;
+    opacity: 1;
+}
+
+/* Visual indicator when input has content */
+.transcription-input.has-content {
+    border-color: #2ecc71;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .transcription-input {
+        font-size: 14px;
+        padding: 10px;
+        min-height: 80px;
+    }
+    
+    .submit-btn {
+        width: 100%;
+        padding: 12px;
+    }
+}

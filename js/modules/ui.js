@@ -7,8 +7,9 @@ import { playCurrentSegment, nextSegment, previousSegment, replayCurrentSegment 
  * Set up UI components and event listeners
  * @param {HTMLAudioElement} audio - The audio element
  * @param {Object} segmentState - The segment state object
+ * @param {Object} inputManager - The input manager object
  */
-export function setupUI(audio, segmentState) {
+export function setupUI(audio, segmentState, inputManager) {
     const playBtn = document.getElementById(config.playBtnId);
     const pauseBtn = document.getElementById(config.pauseBtnId);
     const progressBar = document.getElementById(config.progressBarId);
@@ -61,6 +62,16 @@ export function setupUI(audio, segmentState) {
     // Listen for segment ended event
     document.addEventListener('segmentEnded', (e) => {
         console.log('Segment ended:', e.detail);
+        // When a segment ends, the inputManager will handle showing the input field
+        // due to its own segmentEnded event listener
+    });
+    
+    // Listen for input submitted events to handle segment transitions
+    document.addEventListener('inputSubmitted', (e) => {
+        // Hide the input field when moving to the next segment
+        if (inputManager) {
+            inputManager.hideInputField();
+        }
     });
 }
 
@@ -81,18 +92,33 @@ function setupSegmentControls(audio) {
     
     if (prevBtn) {
         prevBtn.addEventListener('click', () => {
+            // Hide any visible input field when changing segments
+            const inputContainer = document.getElementById(config.inputContainerId);
+            if (inputContainer) {
+                inputContainer.style.display = 'none';
+            }
             previousSegment(audio);
         });
     }
     
     if (nextBtn) {
         nextBtn.addEventListener('click', () => {
+            // Hide any visible input field when changing segments
+            const inputContainer = document.getElementById(config.inputContainerId);
+            if (inputContainer) {
+                inputContainer.style.display = 'none';
+            }
             nextSegment(audio);
         });
     }
     
     if (replayBtn) {
         replayBtn.addEventListener('click', () => {
+            // Hide any visible input field when replaying
+            const inputContainer = document.getElementById(config.inputContainerId);
+            if (inputContainer) {
+                inputContainer.style.display = 'none';
+            }
             replayCurrentSegment(audio);
         });
     }

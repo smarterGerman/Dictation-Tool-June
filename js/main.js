@@ -4,6 +4,8 @@ import { setupUI } from './modules/ui.js';
 import { defaultAudio, defaultVTT } from './modules/config.js';
 import { parseVTT } from './modules/vttParser.js';
 import { initSegmentManager } from './modules/segmentManager.js';
+import { initInputManager } from './modules/inputManager.js';
+import { initUserDataStore } from './modules/userDataStore.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     try {
@@ -18,10 +20,30 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Initialize the segment manager with cues
         const segmentState = initSegmentManager(cues);
         
+        // Initialize the user data store
+        const userDataStore = initUserDataStore(cues.length);
+        
+        // Initialize the input manager
+        const inputManager = initInputManager();
+        
         // Set up the UI components and event listeners
-        setupUI(audioPlayer, segmentState);
+        setupUI(audioPlayer, segmentState, inputManager);
         
         console.log('Dictation Tool initialized successfully');
+        
+        // Listen for input submitted events
+        document.addEventListener('inputSubmitted', function(e) {
+            const { index, text } = e.detail;
+            console.log(`Input submitted for segment ${index + 1}:`, text);
+            
+            // If not at the last segment, auto-play the next segment
+            if (index < cues.length - 1) {
+                setTimeout(() => {
+                    const nextBtn = document.getElementById('next-segment-btn');
+                    if (nextBtn) nextBtn.click();
+                }, 100);
+            }
+        });
     } catch (error) {
         console.error('Failed to initialize application:', error);
         document.getElementById('player-container').innerHTML = `

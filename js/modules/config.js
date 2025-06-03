@@ -19,6 +19,14 @@ export const config = {
     replaySegmentBtnId: 'replay-segment-btn',
     segmentIndicatorId: 'segment-indicator',
     
+    // Input field configurations
+    inputContainerId: 'input-container',
+    inputFieldId: 'transcription-input',
+    submitBtnId: 'submit-button',
+    
     // Default tolerance for segment boundaries (in seconds)
-    segmentTimeTolerance: 0.2
+    segmentTimeTolerance: 0.2,
+    
+    // Delay before automatically focusing the input field (ms)
+    autoFocusDelay: 100
 };

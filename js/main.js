@@ -6,6 +6,7 @@ import { parseVTT } from './modules/vttParser.js';
 import { initSegmentManager } from './modules/segmentManager.js';
 import { initInputManager } from './modules/inputManager.js';
 import { initUserDataStore } from './modules/userDataStore.js';
+import { initResultsScreen } from './modules/resultsScreen.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     try {
@@ -26,15 +27,32 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Initialize the input manager
         const inputManager = initInputManager();
         
+        // Initialize the results screen
+        const resultsScreen = initResultsScreen();
+        
         // Set up the UI components and event listeners
         setupUI(audioPlayer, segmentState, inputManager);
         
         console.log('Dictation Tool initialized successfully');
         
+        // Track if all segments are complete
+        let completedSegments = new Set();
+        
         // Listen for input submitted events
         document.addEventListener('inputSubmitted', function(e) {
-            const { index, text } = e.detail;
-            console.log(`Input submitted for segment ${index + 1}:`, text);
+            const { index, text, isCorrect } = e.detail;
+            console.log(`Input submitted for segment ${index + 1}:`, text, isCorrect ? '(correct)' : '(incorrect)');
+            
+            // Mark this segment as completed
+            completedSegments.add(index);
+            
+            // If all segments are completed, show the results screen
+            if (completedSegments.size === cues.length) {
+                setTimeout(() => {
+                    resultsScreen.showResults();
+                }, 500);
+                return;
+            }
             
             // If not at the last segment, auto-play the next segment
             if (index < cues.length - 1) {
@@ -43,6 +61,29 @@ document.addEventListener('DOMContentLoaded', async function() {
                     if (nextBtn) nextBtn.click();
                 }, 100);
             }
+        });
+        
+        // Listen for retry exercise event
+        document.addEventListener('retryExercise', function() {
+            // Reset completed segments
+            completedSegments = new Set();
+            
+            // Clear user inputs
+            userDataStore.clearAllInputs();
+            
+            // Go back to first segment
+            const firstSegmentIndex = 0;
+            audioPlayer.currentTime = cues[firstSegmentIndex].startTime;
+            segmentState.currentIndex = firstSegmentIndex;
+            
+            // Play the first segment
+            document.getElementById('play-btn').click();
+        });
+        
+        // Listen for new exercise event
+        document.addEventListener('newExercise', function() {
+            // For now, just reload the page (in a real app, we would load a different exercise)
+            window.location.reload();
         });
     } catch (error) {
         console.error('Failed to initialize application:', error);

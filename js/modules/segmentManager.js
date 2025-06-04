@@ -128,10 +128,13 @@ export function getCurrentSegment() {
         return null;
     }
     
+    const currentCue = segmentState.cues[segmentState.currentIndex];
+    
     return {
         index: segmentState.currentIndex,
         total: segmentState.cues.length,
-        cue: segmentState.cues[segmentState.currentIndex],
+        cue: currentCue,
+        text: currentCue.text,
         isFirst: segmentState.currentIndex === 0,
         isLast: segmentState.currentIndex === segmentState.cues.length - 1
     };

@@ -9,12 +9,13 @@
     <link rel="stylesheet" href="css/player.css">
     <link rel="stylesheet" href="css/segments.css">
     <link rel="stylesheet" href="css/input.css">
+    <link rel="stylesheet" href="css/text-comparison.css">
     <link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
     <div class="container">
         <div id="player-container" class="player-container">
-            <h1>Dictation Player</h1>
+            <h1>German Dictation Tool</h1>
             
             <div id="audio-player" class="audio-player">
                 <!-- Audio element will be inserted dynamically -->
@@ -30,6 +31,18 @@
                     <div id="time-display" class="time-display">00:00 / 00:00</div>
                 </div>
             </div>
+            
+            <!-- Segment controls will be inserted here -->
+            <div id="segment-container" class="segment-container">
+                <div class="segment-controls">
+                    <button id="prev-segment-btn" class="control-btn segment-btn">Previous</button>
+                    <span id="segment-indicator" class="segment-indicator">Segment 1 of 10</span>
+                    <button id="replay-segment-btn" class="control-btn segment-btn">Replay</button>
+                    <button id="next-segment-btn" class="control-btn segment-btn">Next</button>
+                </div>
+            </div>
+            
+            <!-- Input container and Results will be inserted dynamically -->
         </div>
     </div>
 

@@ -12,7 +12,7 @@ export const config = {
     progressId: 'progress',
     timeDisplayId: 'time-display',
     
-    // New configurations for VTT integration
+    // Segment configurations for VTT integration
     segmentContainerId: 'segment-container',
     prevSegmentBtnId: 'prev-segment-btn',
     nextSegmentBtnId: 'next-segment-btn',
@@ -23,6 +23,16 @@ export const config = {
     inputContainerId: 'input-container',
     inputFieldId: 'transcription-input',
     submitBtnId: 'submit-button',
+    highlightContainerId: 'highlight-container',
+    
+    // Results screen configurations
+    resultsContainerId: 'results-container',
+    retryBtnId: 'retry-btn',
+    newExerciseBtnId: 'new-exercise-btn',
+    
+    // Text comparison options
+    minMatchPercentage: 90, // Minimum percentage for a match to be considered correct
+    autoAdvanceDelay: 1000, // Delay in ms before auto-advancing to next segment when correct
     
     // Default tolerance for segment boundaries (in seconds)
     segmentTimeTolerance: 0.2,

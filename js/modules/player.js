@@ -16,6 +16,13 @@ export function initPlayer(audioSrc) {
     audio.src = audioSrc;
     audio.preload = 'metadata';
     
+    // Add error handler for audio playback issues
+    audio.addEventListener('error', (e) => {
+        console.error('Audio playback error:', e);
+        console.error('Error code:', audio.error ? audio.error.code : 'unknown');
+        console.error('Error message:', audio.error ? audio.error.message : 'unknown');
+    });
+    
     // Add track element for VTT (optional, mostly for browsers that support native tracks)
     const track = document.createElement('track');
     track.kind = 'metadata';

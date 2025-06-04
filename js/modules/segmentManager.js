@@ -4,6 +4,9 @@
 import { config } from './config.js';
 import { formatTime } from '../utils/helpers.js';
 
+// Store the current timeupdate handler reference
+let currentTimeUpdateHandler = null;
+
 // State for segment management
 const segmentState = {
     cues: [], // Array of VTT cue objects
@@ -37,16 +40,22 @@ export function playCurrentSegment(audio) {
     
     const currentCue = segmentState.cues[segmentState.currentIndex];
     
-    // Set audio time to start of current cue
-    audio.currentTime = currentCue.startTime;
+    // Remove any previous listener
+    if (currentTimeUpdateHandler) {
+        audio.removeEventListener('timeupdate', currentTimeUpdateHandler);
+    }
     
-    // Add event listener for timeupdate to handle segment end
-    const handleTimeUpdate = () => {
-        // Check if current time has passed the end of the cue (with small tolerance)
+    // Create new handler
+    currentTimeUpdateHandler = () => {
+        // Log for debugging
+        console.log(`Segment ${segmentState.currentIndex + 1}: Current time: ${audio.currentTime.toFixed(2)}, End time: ${currentCue.endTime.toFixed(2)}`);
+        
+        // Check if current time has passed the end of the cue
         if (audio.currentTime >= currentCue.endTime - config.segmentTimeTolerance) {
+            console.log(`Ending segment ${segmentState.currentIndex + 1}`);
             audio.pause();
             segmentState.isPlaying = false;
-            audio.removeEventListener('timeupdate', handleTimeUpdate);
+            audio.removeEventListener('timeupdate', currentTimeUpdateHandler);
             
             // Dispatch an event that the segment has ended
             const event = new CustomEvent('segmentEnded', {
@@ -59,9 +68,22 @@ export function playCurrentSegment(audio) {
         }
     };
     
-    // Start playing and set up listener
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.play();
+    // Add proper error handling for seeking
+    try {
+        audio.currentTime = currentCue.startTime;
+        console.log(`Starting segment ${segmentState.currentIndex + 1} at ${currentCue.startTime.toFixed(2)}`);
+    } catch (error) {
+        console.error(`Failed to seek to ${currentCue.startTime} for segment ${segmentState.currentIndex + 1}:`, error);
+    }
+    
+    // Register new handler
+    audio.addEventListener('timeupdate', currentTimeUpdateHandler);
+    
+    // Play with error handling
+    audio.play().catch(error => {
+        console.error(`Failed to play segment ${segmentState.currentIndex + 1}:`, error);
+    });
+    
     segmentState.isPlaying = true;
 }
 

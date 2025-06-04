@@ -35,7 +35,7 @@ export const config = {
     autoAdvanceDelay: 1000, // Delay in ms before auto-advancing to next segment when correct
     
     // Default tolerance for segment boundaries (in seconds)
-    segmentTimeTolerance: 0.2,
+    segmentTimeTolerance: 0.05, // Reduced tolerance to prevent premature ending
     
     // Delay before automatically focusing the input field (ms)
     autoFocusDelay: 100

@@ -277,10 +277,10 @@ function handleSegmentEnded(e) {
         console.log(`Segment ${index + 1} ended, isLastSegment: ${isLastSegment}`);
         
         // If this is the last segment, check if we should show results instead
-        if (isLastSegment) {
-            console.log('Last segment ended, input manager will not show input field');
-            return;
-        }
+        // if (isLastSegment) {
+        //    console.log('Last segment ended, input manager will not show input field');
+        //    return;
+        // }
         
         // Show the input field for non-last segments
         showInputField();

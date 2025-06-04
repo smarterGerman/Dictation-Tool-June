@@ -94,10 +94,10 @@ export function playCurrentSegment(audio) {
             document.dispatchEvent(event);
             
             // If this was the last segment, also dispatch the showResults event
-            if (isLastSegment) {
-                console.log('Last segment ended naturally, showing results');
-                document.dispatchEvent(new CustomEvent('showResults'));
-            }
+            // if (isLastSegment) {
+            //    console.log('Last segment ended naturally, showing results');
+            //    document.dispatchEvent(new CustomEvent('showResults'));
+            // } 
         }
     };
     

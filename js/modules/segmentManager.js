@@ -63,7 +63,7 @@ export function playCurrentSegment(audio) {
     currentTimeUpdateHandler = () => {
         // Only check end time if we're still playing the same segment
         // Log for debugging
-        console.log(`Segment ${segmentState.currentIndex + 1}: Current time: ${audio.currentTime.toFixed(2)}, End time: ${currentCue.endTime.toFixed(2)}`);
+        // console.log(`Segment ${segmentState.currentIndex + 1}: Current time: ${audio.currentTime.toFixed(2)}, End time: ${currentCue.endTime.toFixed(2)}`);
         
         if (audio.currentTime >= currentCue.endTime - config.segmentTimeTolerance) {
             console.log(`Ending segment ${segmentState.currentIndex + 1} at time ${audio.currentTime.toFixed(2)}`);

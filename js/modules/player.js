@@ -67,7 +67,30 @@ export function updateProgress(audio) {
  * @param {Array} [cues] - Optional array of segment cues
  */
 export function setAudioProgress(audio, e, cues) {
-    // Get the main progress bar element (not the clicked child element)
+    // First, check if we clicked directly on a segment element
+    const clickedElement = e.target;
+    console.log('Clicked element:', clickedElement.className, clickedElement.title || 'no title');
+    
+    // If we clicked on a segment-region or segment-marker, extract segment info directly
+    if (clickedElement.className === 'segment-region' || clickedElement.className === 'segment-marker') {
+        // Extract segment number from the title attribute (format: "Segment X" or "Start of segment X")
+        const titleText = clickedElement.title || '';
+        const segmentMatch = titleText.match(/segment (\d+)/i);
+        
+        if (segmentMatch && segmentMatch[1]) {
+            // Convert to zero-based index
+            const segmentIndex = parseInt(segmentMatch[1], 10) - 1;
+            
+            console.log(`Direct click on ${clickedElement.className} for segment ${segmentIndex + 1}`);
+            
+            // Jump to the segment
+            jumpToSegment(audio, segmentIndex);
+            return;
+        }
+    }
+    
+    // If we didn't click directly on a segment element, or couldn't extract the segment number,
+    // fall back to the current calculation method
     const progressBar = document.getElementById(config.progressBarId);
     if (!progressBar) {
         console.error(`Progress bar element with ID '${config.progressBarId}' not found`);

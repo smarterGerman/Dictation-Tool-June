@@ -96,12 +96,28 @@ function transformSlash(text) {
 
 /**
  * Transform eszett alternative writings to proper eszett (ß)
+ * Only transforms specific patterns, NEVER regular 'ss'
  * @param {string} text - The input text
  * @returns {string} - Text with transformed eszett
  */
 function transformEszett(text) {
-    // Replace "ss" with "ß"
-    return text.replace(/ss/g, 'ß');
+    let result = text;
+    
+    // Pattern 1: Replace "s:" with "ß"
+    result = result.replace(/s:/g, 'ß');
+    result = result.replace(/S:/g, 'ß');
+    
+    // Pattern 2: Replace "s/" with "ß"
+    result = result.replace(/s\//g, 'ß');
+    result = result.replace(/S\//g, 'ß');
+    
+    // Pattern 3: Replace capital B in the middle/end of a word with "ß"
+    result = result.replace(/([a-zäöü])B($|[a-zäöü])/g, '$1ß$2');
+    
+    // IMPORTANT: DO NOT transform normal 'ss' to 'ß'
+    // Words like "Haussegen" must remain as "Haussegen"
+    
+    return result;
 }
 
 /**

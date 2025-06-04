@@ -272,9 +272,17 @@ function handleInputEvent(inputField, highlightContainer) {
  */
 function handleSegmentEnded(e) {
     try {
-        const { index, cue } = e.detail;
+        const { index, cue, isLastSegment } = e.detail;
         
-        // Show the input field
+        console.log(`Segment ${index + 1} ended, isLastSegment: ${isLastSegment}`);
+        
+        // If this is the last segment, check if we should show results instead
+        if (isLastSegment) {
+            console.log('Last segment ended, input manager will not show input field');
+            return;
+        }
+        
+        // Show the input field for non-last segments
         showInputField();
         
         // Load any existing input for this segment
@@ -359,6 +367,8 @@ function handleSubmit() {
         const inputField = document.getElementById(config.inputFieldId);
         
         if (currentSegment && inputField) {
+            console.log(`Handling submit for segment ${currentSegment.index + 1}, isLast: ${currentSegment.isLast}`);
+            
             // Always apply transformations before submitting
             const rawInput = inputField.value || "";
             let transformedInput = rawInput;
@@ -385,7 +395,7 @@ function handleSubmit() {
                 // Compare texts for accuracy and determine if correct
                 const comparison = compareTexts(transformedInput, currentSegment.cue.text);
                 
-                // Include comparison results in the event
+                // Include comparison results in the event and flag if this is the last segment
                 const submitEvent = new CustomEvent('inputSubmitted', {
                     detail: { 
                         index: currentSegment.index,
@@ -394,11 +404,20 @@ function handleSubmit() {
                         transformedText: comparison.transformedInput,
                         isCorrect: comparison.isMatch,
                         errorPositions: comparison.errorPositions,
-                        referenceText: currentSegment.cue.text
+                        referenceText: currentSegment.cue.text,
+                        isLastSegment: currentSegment.isLast
                     }
                 });
                 
                 document.dispatchEvent(submitEvent);
+                
+                // If this is the last segment, also trigger the showResults event directly
+                if (currentSegment.isLast) {
+                    console.log('Last segment submitted, dispatching showResults event');
+                    setTimeout(() => {
+                        document.dispatchEvent(new CustomEvent('showResults'));
+                    }, 500);
+                }
             } catch (comparisonError) {
                 try { console.error("Error comparing texts on submit:", comparisonError); } catch (e) { /* Silence console errors */ }
             }

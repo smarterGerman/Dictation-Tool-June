@@ -194,3 +194,34 @@ function createSegmentControls() {
     
     return segmentContainer;
 }
+
+/**
+ * Add an exit button to the player controls
+ * Allows users to end the dictation early and see results
+ */
+export function addExitButton() {
+    console.log('Adding exit button to player controls');
+    const playerContainer = document.getElementById(config.playerContainerId);
+    if (!playerContainer) return;
+    
+    // Create exit button if it doesn't exist
+    let exitBtn = document.getElementById('exit-btn');
+    if (!exitBtn) {
+        exitBtn = document.createElement('button');
+        exitBtn.id = 'exit-btn';
+        exitBtn.className = 'control-btn exit-btn';
+        exitBtn.innerHTML = '&times;'; // × symbol
+        exitBtn.title = 'Exit dictation and see results';
+        
+        // Add to player container
+        playerContainer.appendChild(exitBtn);
+        
+        // Add click event - dispatch finishExercise event
+        exitBtn.addEventListener('click', () => {
+            console.log('Exit button clicked, finishing exercise');
+            document.dispatchEvent(new Event('finishExercise'));
+        });
+        
+        console.log('Exit button added successfully');
+    }
+}

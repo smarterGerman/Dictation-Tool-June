@@ -80,14 +80,24 @@ export function playCurrentSegment(audio) {
                 currentTimeUpdateHandler = null;
             }
             
+            // Check if this was the last segment
+            const isLastSegment = segmentState.currentIndex === segmentState.cues.length - 1;
+            
             // Dispatch segment ended event
             const event = new CustomEvent('segmentEnded', {
                 detail: { 
                     index: segmentState.currentIndex,
-                    cue: currentCue
+                    cue: currentCue,
+                    isLastSegment: isLastSegment
                 }
             });
             document.dispatchEvent(event);
+            
+            // If this was the last segment, also dispatch the showResults event
+            if (isLastSegment) {
+                console.log('Last segment ended naturally, showing results');
+                document.dispatchEvent(new CustomEvent('showResults'));
+            }
         }
     };
     
@@ -131,13 +141,26 @@ export function nextSegment(audio) {
     // Update the timestamp
     lastAdvanceTime = now;
     
-    if (segmentState.currentIndex < segmentState.cues.length - 1) {
-        segmentState.currentIndex++;
-        updateSegmentIndicator();
-        playCurrentSegment(audio);
-        return true;
+    // Check if we're already at the last segment
+    if (segmentState.currentIndex >= segmentState.cues.length - 1) {
+        console.log('Already at the last segment, dispatching showResults event');
+        // Dispatch event to show results
+        document.dispatchEvent(new CustomEvent('showResults'));
+        return false;
     }
-    return false;
+    
+    // Advance to next segment
+    segmentState.currentIndex++;
+    updateSegmentIndicator();
+    
+    // Check if this is now the last segment after advancing
+    const isLastSegment = segmentState.currentIndex === segmentState.cues.length - 1;
+    if (isLastSegment) {
+        console.log('Advanced to final segment');
+    }
+    
+    playCurrentSegment(audio);
+    return true;
 }
 
 /**

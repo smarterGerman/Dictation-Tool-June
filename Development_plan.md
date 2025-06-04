@@ -53,7 +53,7 @@ Probably using modules (ES6), surely separating folders and files based on funct
 
 #### Technical Implementation
 - Create text input UI components
-- Build focus management system
+- Bö
 - Implement data structure to store user inputs per segment
 - Add event handlers for input submission
 

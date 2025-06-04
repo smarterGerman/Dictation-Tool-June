@@ -1,6 +1,6 @@
 // Application entry point (initialization and main logic)
 import { initPlayer } from './modules/player.js';
-import { setupUI } from './modules/ui.js';
+import { setupUI, addExitButton } from './modules/ui.js';
 import { defaultAudio, defaultVTT } from './modules/config.js';
 import { parseVTT } from './modules/vttParser.js';
 import { initSegmentManager } from './modules/segmentManager.js';
@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Set up the UI components and event listeners
         setupUI(audioPlayer, segmentState, inputManager);
         
+        // Add exit button for early dictation completion
+        addExitButton();
+        
         console.log('Dictation Tool initialized successfully');
         
         // Track if all segments are complete
@@ -56,27 +59,37 @@ document.addEventListener('DOMContentLoaded', async function() {
                 const { index, text, isCorrect } = e.detail;
                 console.log(`Input submitted for segment ${index + 1}:`, text, isCorrect ? '(correct)' : '(incorrect)');
                 
+                // Get the current segment to check if it's the last one
+                const currentSegment = segmentState.currentIndex;
+                const isLastSegment = currentSegment >= cues.length - 1;
+                console.log(`Current segment: ${currentSegment + 1} of ${cues.length}, Is last: ${isLastSegment}`);
+                
                 // Notify the text comparison system about the segment change
                 notifySegmentChange();
                 
                 // Mark this segment as completed
                 completedSegments.add(index);
                 
-                // If all segments are completed, show the results screen
-                if (completedSegments.size === cues.length) {
+                // Show results screen in three cases:
+                // 1. All segments are completed
+                // 2. This is the last segment
+                // 3. We've reached the end of the exercise
+                if (completedSegments.size === cues.length || isLastSegment || currentSegment === cues.length - 1) {
+                    console.log('Last segment completed or all segments done, showing results screen');
                     setTimeout(() => {
-                    resultsScreen.showResults();
-                }, 500);
-                return;
-            }
-            
-            // If not at the last segment, auto-play the next segment
-            if (index < cues.length - 1) {
-                setTimeout(() => {
-                    const nextBtn = document.getElementById('next-segment-btn');
-                    if (nextBtn) nextBtn.click();
-                }, 100);
-            }
+                        resultsScreen.showResults();
+                    }, 500);
+                    return;
+                }
+                
+                // If not at the last segment, auto-play the next segment
+                if (index < cues.length - 1) {
+                    console.log(`Advancing to next segment (${index + 2} of ${cues.length})`);
+                    setTimeout(() => {
+                        const nextBtn = document.getElementById('next-segment-btn');
+                        if (nextBtn) nextBtn.click();
+                    }, 100);
+                }
             } finally {
                 // Reset flag after a delay
                 setTimeout(() => {
@@ -114,6 +127,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             notifySegmentChange();
             
             // Show the results screen
+            setTimeout(() => {
+                resultsScreen.showResults();
+            }, 500);
+        });
+        
+        // Direct event listener for showing results from any source
+        document.addEventListener('showResults', function() {
+            console.log('showResults event received, displaying results screen');
             setTimeout(() => {
                 resultsScreen.showResults();
             }, 500);

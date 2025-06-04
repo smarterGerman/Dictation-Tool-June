@@ -46,8 +46,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         console.log('Dictation Tool initialized successfully');
         
-        // Track if all segments are complete
+                // Track if all segments are complete
         let completedSegments = new Set();
+        
+        // Expose utility functions for developers via console
+        window.dictationUtils = {
+            toggleAdvancedComparison: (enabled) => {
+                if (typeof enabled !== 'boolean') {
+                    console.log(`Advanced comparison is currently ${inputManager.setAdvancedComparison ? 'enabled' : 'disabled'}`);
+                    return;
+                }
+                
+                if (inputManager.setAdvancedComparison) {
+                    inputManager.setAdvancedComparison(enabled);
+                    console.log(`Advanced comparison ${enabled ? 'enabled' : 'disabled'}`);
+                } else {
+                    console.log('Cannot toggle advanced comparison - input manager not properly initialized');
+                }
+            }
+        };
         
         // Add protection against multiple rapid input submissions
         let isProcessingInput = false;

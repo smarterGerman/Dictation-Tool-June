@@ -11,6 +11,32 @@
     text-decoration: underline wavy #e74c3c;
 }
 
+/* Advanced word matching status classes */
+.word-correct {
+    color: #2ecc71; /* Same as .correct */
+}
+
+.word-misspelled {
+    color: #e74c3c; /* Same as .incorrect */
+    text-decoration: underline wavy #e74c3c;
+}
+
+.word-missing {
+    color: #e74c3c;
+    text-decoration: line-through;
+}
+
+.word-extra {
+    color: #9b59b6; /* Purple for extra words */
+    font-style: italic;
+}
+
+.extra-words-container {
+    margin-top: 5px;
+    font-size: 0.9em;
+    color: #7f8c8d;
+}
+
 /* The highlighted result container */
 .highlight-container {
     background-color: #fff;

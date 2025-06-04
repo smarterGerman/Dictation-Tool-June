@@ -15,10 +15,19 @@ import { textComparisonConfig } from '../config.js';
  * @return {Object[]} - Array of match objects with alignment information
  */
 export function findBestWordMatches(
-  expectedWords, 
-  actualWords, 
+  expectedWords = [], 
+  actualWords = [], 
   matchThreshold = textComparisonConfig.minimumMatchThreshold
 ) {
+  // Input validation
+  if (!Array.isArray(expectedWords)) expectedWords = [];
+  if (!Array.isArray(actualWords)) actualWords = [];
+  
+  // Ensure we have valid match threshold
+  if (typeof matchThreshold !== 'number' || matchThreshold < 0 || matchThreshold > 1) {
+    matchThreshold = textComparisonConfig.minimumMatchThreshold;
+  }
+  
   const result = [];
   let remainingActualWords = [...actualWords]; // Copy to track unmatched words
   

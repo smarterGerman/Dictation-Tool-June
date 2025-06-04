@@ -1,13 +1,19 @@
 /**
  * Module for managing user input fields and focus
  */
-import { config } from './config.js';
+import { config, textComparisonConfig } from './config.js';
 import { getCurrentSegment, getAllSegments } from './segmentManager.js';
 import { saveUserInput, getUserInput } from './userDataStore.js';
 import { compareTexts, generateHighlightedHTML, transformSpecialCharacters } from './textComparison.js';
+import { processInput } from './textComparison/index.js';
+import { updateInputDisplay } from './uiManager.js';
+import { debounce } from '../utils/performance.js';
 
 // Add protection against multiple rapid Enter key presses
 let isProcessingEnter = false;
+
+// Flag to enable/disable advanced comparison (default: enabled)
+let useAdvancedComparison = true;
 
 /**
  * Initialize the input manager
@@ -25,7 +31,8 @@ export function initInputManager() {
         hideInputField,
         setFocus,
         getCurrentInputValue,
-        clearInput
+        clearInput,
+        setAdvancedComparison: (enabled) => { useAdvancedComparison = enabled; }
     };
 }
 
@@ -324,6 +331,7 @@ function loadExistingInput(segmentIndex) {
 
 /**
  * Update the highlighted text based on comparison results
+ * Using advanced word matching algorithm for better accuracy
  * @param {string} userInput - Current user input
  * @param {string} referenceText - Reference text to compare against
  * @param {HTMLElement} container - Container element to update
@@ -339,19 +347,53 @@ function updateHighlighting(userInput, referenceText, container) {
         // Always apply transformations to ensure consistency
         const transformedInput = transformSpecialCharacters(userInput);
         
-        // Compare texts and get results
-        const comparison = compareTexts(transformedInput, referenceText);
+        // Use legacy comparison system as fallback
+        // useAdvancedComparison is defined at the module level
+        let comparison;
         
-        // Generate HTML with highlighted errors
-        const highlightedHTML = generateHighlightedHTML(
-            comparison.transformedInput || transformedInput, 
-            comparison.errorPositions
-        );
+        if (useAdvancedComparison) {
+            try {
+                // Process input using the new advanced algorithm
+                const result = processInput(referenceText, transformedInput);
+                
+                // Update UI using the new display function
+                updateInputDisplay(result, container);
+                
+                // Create a compatibility object for legacy code
+                comparison = {
+                    isMatch: result.words.every(w => w.status === 'correct') && 
+                             (!result.extraWords || result.extraWords.length === 0),
+                    transformedInput,
+                    errorPositions: [],
+                    errorCount: result.words.filter(w => w.status !== 'correct').length + 
+                                (result.extraWords ? result.extraWords.length : 0),
+                    correctWords: result.words.filter(w => w.status === 'correct').length,
+                    totalWords: result.words.length
+                };
+                
+                // Successfully used advanced comparison, so return
+                return comparison;
+            } catch (advancedError) {
+                console.error("Advanced comparison failed, falling back to legacy:", advancedError);
+                useAdvancedComparison = false;
+            }
+        }
         
-        // Update the container
-        container.innerHTML = highlightedHTML;
-        
-        return comparison;
+        if (!useAdvancedComparison) {
+            // Compare texts using the legacy system
+            comparison = compareTexts(transformedInput, referenceText);
+            
+            // Generate HTML with highlighted errors
+            const highlightedHTML = generateHighlightedHTML(
+                comparison.transformedInput || transformedInput, 
+                comparison.errorPositions
+            );
+            
+            // Update the container
+            container.innerHTML = highlightedHTML;
+            
+            return comparison;
+        }
     } catch (error) {
         try { console.error("Error in updateHighlighting:", error); } catch (e) { /* Silence console errors */ }
         return { isMatch: false, errorPositions: [] };

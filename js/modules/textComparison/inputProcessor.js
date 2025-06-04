@@ -16,10 +16,14 @@ import { textComparisonConfig } from '../config.js';
  * @return {Object} - Alignment results with word status
  */
 export function processInput(
-  referenceText, 
-  userInput, 
+  referenceText = "", 
+  userInput = "", 
   matchThreshold = textComparisonConfig.minimumMatchThreshold
 ) {
+  // Input validation
+  if (typeof referenceText !== 'string') referenceText = String(referenceText || "");
+  if (typeof userInput !== 'string') userInput = String(userInput || "");
+  
   // Normalize and split texts into words
   const normalizedReference = normalizeText(referenceText);
   const normalizedInput = normalizeText(userInput);

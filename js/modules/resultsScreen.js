@@ -4,7 +4,9 @@
 import { config } from './config.js';
 import { getAllSegments } from './segmentManager.js';
 import { getAllUserInputs } from './userDataStore.js';
-import { compareTexts } from './textComparison.js';
+import { compareTexts, generateHighlightedHTML } from './textComparison.js';
+import { processInput } from './textComparison/index.js';
+import { calculateStats, updateInputDisplay } from './uiManager.js';
 
 // Store timing information for statistics
 let exerciseStartTime = null;
@@ -107,6 +109,7 @@ function calculateStatistics(segments, userInputs) {
     let correctChars = 0;
     let errorCount = 0;
     let completedSegments = 0;
+    const comparisonResults = [];
     
     // Process each segment
     segments.forEach((segment, index) => {
@@ -116,13 +119,26 @@ function calculateStatistics(segments, userInputs) {
         if (userInput.trim() !== '') {
             completedSegments++;
             
-            // Compare texts
-            const comparison = compareTexts(userInput, referenceText);
-            
-            // Count characters
-            totalChars += referenceText.length;
-            errorCount += comparison.errorPositions.length;
-            correctChars += referenceText.length - comparison.errorPositions.length;
+            try {
+                // Try to use the advanced comparison system first
+                const advancedResult = processInput(referenceText, userInput);
+                comparisonResults.push(advancedResult);
+                
+                // Count characters for compatibility with existing code
+                totalChars += referenceText.length;
+                errorCount += advancedResult.words.filter(w => w.status !== 'correct').length;
+                correctChars += advancedResult.words.filter(w => w.status === 'correct').length;
+            } catch (e) {
+                console.error("Advanced comparison failed for segment", index, e);
+                
+                // Fall back to legacy comparison system
+                const comparison = compareTexts(userInput, referenceText);
+                
+                // Count characters
+                totalChars += referenceText.length;
+                errorCount += comparison.errorPositions.length;
+                correctChars += referenceText.length - comparison.errorPositions.length;
+            }
         }
     });
     
@@ -139,6 +155,16 @@ function calculateStatistics(segments, userInputs) {
     // Calculate completion percentage
     const completionPercentage = (completedSegments / segments.length) * 100;
     
+    // Try to compute advanced stats if we have comparison results
+    let advancedMetrics = null;
+    if (comparisonResults && comparisonResults.length > 0) {
+        try {
+            advancedMetrics = calculateStats(comparisonResults);
+        } catch (e) {
+            console.error("Failed to calculate advanced metrics:", e);
+        }
+    }
+    
     return {
         totalSegments: segments.length,
         completedSegments,
@@ -148,7 +174,9 @@ function calculateStatistics(segments, userInputs) {
         errorCount,
         accuracy: Math.round(accuracy * 10) / 10,
         totalTimeMs,
-        formattedTime
+        formattedTime,
+        advancedMetrics,
+        hasAdvancedMetrics: !!advancedMetrics
     };
 }
 
@@ -174,10 +202,18 @@ function generateResultsHTML(stats, segments, userInputs) {
                 <div class="stat-title">Accuracy</div>
                 <div class="stat-value ${getAccuracyClass(stats.accuracy)}">${stats.accuracy}%</div>
             </div>
+            ${stats.hasAdvancedMetrics ? `
+            <div class="stat-item">
+                <div class="stat-title">Word Stats</div>
+                <div class="stat-sub-item">Correct Words: <span class="word-correct">${stats.advancedMetrics.correctWords}</span></div>
+                <div class="stat-sub-item">Misspelled: <span class="word-misspelled">${stats.advancedMetrics.misspelledWords}</span></div>
+                <div class="stat-sub-item">Missing: <span class="word-missing">${stats.advancedMetrics.missingWords}</span></div>
+                <div class="stat-sub-item">Extra: <span class="word-extra">${stats.advancedMetrics.extraWords}</span></div>
+            </div>` : `
             <div class="stat-item">
                 <div class="stat-title">Mistakes</div>
                 <div class="stat-value ${getErrorClass(stats.errorCount)}">${stats.errorCount}</div>
-            </div>
+            </div>`}
             <div class="stat-item">
                 <div class="stat-title">Time</div>
                 <div class="stat-value">${stats.formattedTime}</div>
@@ -193,27 +229,59 @@ function generateResultsHTML(stats, segments, userInputs) {
         const userInput = userInputs[index] || '';
         if (userInput.trim() === '') return;
         
-        const comparison = compareTexts(userInput, segment.text);
-        
-        // Only show segments with errors
-        if (comparison.errorPositions.length > 0) {
-            const segmentNumber = index + 1;
-            const highlightedInput = generateHighlightedHTML(
-                comparison.transformedInput || userInput,
-                comparison.errorPositions
-            );
+        try {
+            // Try to use the advanced comparison system first
+            const advancedResult = processInput(segment.text, userInput);
             
-            html += `
-                <div class="segment-result">
-                    <div class="segment-header">
-                        <span>Segment ${segmentNumber}</span>
+            // Only show segments with errors
+            const hasErrors = advancedResult.words.some(w => w.status !== 'correct') || 
+                            (advancedResult.extraWords && advancedResult.extraWords.length > 0);
+                        
+            if (hasErrors) {
+                const segmentNumber = index + 1;
+                
+                // Create a temporary container to use our display function
+                const tempContainer = document.createElement('div');
+                updateInputDisplay(advancedResult, tempContainer);
+                
+                html += `
+                    <div class="segment-result">
+                        <div class="segment-header">
+                            <span>Segment ${segmentNumber}</span>
+                        </div>
+                        <div class="segment-content">
+                            <div class="highlight-container">${tempContainer.innerHTML}</div>
+                        </div>
+                        <div class="segment-reference">${segment.text}</div>
                     </div>
-                    <div class="segment-content">
-                        <div class="highlight-container">${highlightedInput}</div>
+                `;
+            }
+        } catch (e) {
+            console.error("Advanced comparison failed for segment in results:", index, e);
+            
+            // Fall back to legacy comparison
+            const comparison = compareTexts(userInput, segment.text);
+            
+            // Only show segments with errors
+            if (comparison.errorPositions.length > 0) {
+                const segmentNumber = index + 1;
+                const highlightedInput = generateHighlightedHTML(
+                    comparison.transformedInput || userInput,
+                    comparison.errorPositions
+                );
+                
+                html += `
+                    <div class="segment-result">
+                        <div class="segment-header">
+                            <span>Segment ${segmentNumber}</span>
+                        </div>
+                        <div class="segment-content">
+                            <div class="highlight-container">${highlightedInput}</div>
+                        </div>
+                        <div class="segment-reference">${segment.text}</div>
                     </div>
-                    <div class="segment-reference">${segment.text}</div>
-                </div>
-            `;
+                `;
+            }
         }
     });
     

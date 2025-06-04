@@ -34,7 +34,8 @@ export function setupUI(audio, segmentState, inputManager) {
     
     // Click on progress bar
     progressBar.addEventListener('click', (e) => {
-        setAudioProgress(audio, e);
+        // The setAudioProgress function will handle finding and jumping to the right segment
+        setAudioProgress(audio, e, segmentState.cues);
     });
     
     // When audio ends

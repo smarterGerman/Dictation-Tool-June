@@ -224,6 +224,39 @@ export function getAllSegments() {
 }
 
 /**
+ * Find the segment index at a specific time
+ * @param {number} time - The time position in seconds
+ * @returns {number} - The index of the segment containing this time
+ */
+export function findSegmentAtTime(time) {
+    for (let i = 0; i < segmentState.cues.length; i++) {
+        const cue = segmentState.cues[i];
+        if (time >= cue.startTime && time < cue.endTime) {
+            return i;
+        }
+    }
+    
+    // If not found within any segment exactly, find the closest segment
+    // This handles edge cases like clicking past the last segment
+    let closestIndex = 0;
+    let closestDistance = Infinity;
+    
+    for (let i = 0; i < segmentState.cues.length; i++) {
+        const cue = segmentState.cues[i];
+        const distanceToStart = Math.abs(time - cue.startTime);
+        const distanceToEnd = Math.abs(time - cue.endTime);
+        const minDistance = Math.min(distanceToStart, distanceToEnd);
+        
+        if (minDistance < closestDistance) {
+            closestDistance = minDistance;
+            closestIndex = i;
+        }
+    }
+    
+    return closestIndex;
+}
+
+/**
  * Update the segment indicator in the UI
  */
 function updateSegmentIndicator() {

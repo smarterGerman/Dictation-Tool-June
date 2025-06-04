@@ -1,5 +1,5 @@
 // Application entry point (initialization and main logic)
-import { initPlayer } from './modules/player.js';
+import { initPlayer, createSegmentMarkers } from './modules/player.js';
 import { setupUI, addExitButton } from './modules/ui.js';
 import { defaultAudio, defaultVTT } from './modules/config.js';
 import { parseVTT } from './modules/vttParser.js';
@@ -18,6 +18,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Initialize the player with the default audio file
         const audioPlayer = initPlayer(defaultAudio);
+        
+        // Create segment markers when audio metadata is loaded
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            console.log('Audio metadata loaded, creating segment markers');
+            // Create visual markers on the progress bar
+            createSegmentMarkers(cues, audioPlayer.duration);
+        });
         
         // Initialize the segment manager with cues
         const segmentState = initSegmentManager(cues);

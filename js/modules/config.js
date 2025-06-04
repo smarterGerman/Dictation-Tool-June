@@ -40,6 +40,9 @@ export const config = {
     // Delay before automatically focusing the input field (ms)
     autoFocusDelay: 100,
     
+    // Progress bar seeking behavior
+    seekToSegmentStart: true, // When true, clicking on progress bar jumps to start of the closest segment
+    
     // New timing configurations
     segmentAdvanceDelay: 200,      // ms to wait before playing next segment
     segmentAdvanceCooldown: 800,   // ms cooldown between segment advances

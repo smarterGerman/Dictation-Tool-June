@@ -85,6 +85,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             // For now, just reload the page (in a real app, we would load a different exercise)
             window.location.reload();
         });
+        
+        // Listen for finish exercise event (when user clicks the Finish button)
+        document.addEventListener('finishExercise', function() {
+            // Show the results screen
+            setTimeout(() => {
+                resultsScreen.showResults();
+            }, 500);
+        });
     } catch (error) {
         console.error('Failed to initialize application:', error);
         document.getElementById('player-container').innerHTML = `

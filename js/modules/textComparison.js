@@ -121,6 +121,20 @@ function transformEszett(text) {
 }
 
 /**
+ * Normalize text for comparison by removing punctuation and case
+ * @param {string} text - Text to normalize
+ * @returns {string} - Normalized text
+ */
+function normalizeTextForComparison(text) {
+    // Convert to lowercase and remove all punctuation
+    return text
+        .toLowerCase()
+        .replace(/[.,;:!?()[\]{}'"–—-]/g, '') // Remove punctuation
+        .replace(/\s+/g, ' ')                // Normalize whitespace
+        .trim();
+}
+
+/**
  * Compare user input with reference text
  * @param {string} userInput - The user's transcribed text
  * @param {string} referenceText - The correct reference text
@@ -131,48 +145,65 @@ export function compareTexts(userInput, referenceText) {
         return { 
             isMatch: false,
             transformedInput: '',
-            errorPositions: []
+            errorPositions: [],
+            errorCount: 0,
+            correctWords: 0
         };
     }
     
     // Transform special characters in user input
     const transformedInput = transformSpecialCharacters(userInput);
+
+    // Normalize both texts for comparison:
+    // 1. Apply transformations for special characters
+    // 2. Convert to lowercase for case-insensitive comparison
+    // 3. Remove punctuation for comparison only
+    const normalizedUserInput = normalizeTextForComparison(transformedInput);
+    const normalizedRefText = normalizeTextForComparison(referenceText);
     
-    // Normalize both texts for comparison 
-    // (trim whitespace but preserve case for better error highlighting)
-    const normalizedInput = transformedInput.trim();
-    const normalizedReference = referenceText.trim();
+    // Split into words
+    const userWords = normalizedUserInput.split(/\s+/).filter(w => w.length > 0);
+    const refWords = normalizedRefText.split(/\s+/).filter(w => w.length > 0);
     
-    // For exact match check, use case-insensitive comparison
-    const isExactMatch = normalizedInput.toLowerCase() === normalizedReference.toLowerCase();
-    
-    // Calculate a similarity score (for partial matching if needed)
-    const similarityScore = calculateSimilarity(
-        normalizedInput.toLowerCase(), 
-        normalizedReference.toLowerCase()
-    );
-    
-    // Find error positions for highlighting (case-sensitive for better feedback)
+    // Track errors and matches
     const errorPositions = [];
+    let correctWords = 0;
     
-    if (!isExactMatch) {
-        // Use Levenshtein distance to find a better alignment of the texts
-        const alignment = alignTexts(normalizedInput, normalizedReference);
+    // Original user input for highlighting
+    const origUserWords = transformedInput.split(/\s+/).filter(w => w.length > 0);
+    let currentPos = 0;
+    
+    // Compare each word
+    origUserWords.forEach((word, i) => {
+        // Skip if index out of bounds or words don't match
+        if (i >= userWords.length || i >= refWords.length || 
+            userWords[i] !== refWords[i]) {
+            
+            // Mark as error
+            const start = currentPos;
+            const end = currentPos + word.length;
+            errorPositions.push({ start, end });
+        } else {
+            correctWords++;
+        }
         
-        // Mark positions with errors
-        alignment.forEach((position, index) => {
-            if (position.status === 'error' || position.status === 'missing') {
-                errorPositions.push(index);
-            }
-        });
-    }
+        // Update position
+        currentPos += word.length + 1; // +1 for the space
+    });
+    
+    // Count additional errors for missing words
+    const errorCount = Math.max(0, refWords.length - correctWords);
+    
+    // Check if all words match
+    const isMatch = correctWords === refWords.length && userWords.length === refWords.length;
     
     return {
-        isMatch: isExactMatch,
-        similarityScore,
-        transformedInput: normalizedInput,
+        isMatch,
+        transformedInput,
         errorPositions,
-        referenceText: normalizedReference
+        errorCount,
+        correctWords,
+        totalWords: refWords.length
     };
 }
 
@@ -263,7 +294,7 @@ function alignTexts(input, reference) {
 /**
  * Generate HTML with error highlighting for the user input
  * @param {string} input - The user's input text (or transformed input)
- * @param {Array} errorPositions - Array of error positions
+ * @param {Array} errorPositions - Array of error position objects {start, end}
  * @returns {string} - HTML string with highlighted errors
  */
 export function generateHighlightedHTML(input, errorPositions) {
@@ -274,12 +305,25 @@ export function generateHighlightedHTML(input, errorPositions) {
         return `<span class="correct">${input}</span>`;
     }
     
-    // Build output with character-by-character highlighting
+    // Build output with highlighting based on error positions
     let output = '';
     const chars = input.split('');
     
     chars.forEach((char, index) => {
-        if (errorPositions.includes(index)) {
+        // Check if this index is within any error position range
+        let isError = false;
+        for (const pos of errorPositions) {
+            // Handle both array of indices and array of {start, end} objects
+            if (typeof pos === 'number') {
+                isError = pos === index;
+            } else if (pos && typeof pos === 'object') {
+                isError = index >= pos.start && index < pos.end;
+            }
+            
+            if (isError) break;
+        }
+        
+        if (isError) {
             // Error character (red)
             output += `<span class="incorrect">${char}</span>`;
         } else {

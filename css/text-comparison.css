@@ -30,6 +30,23 @@
     font-style: italic;
 }
 
+/* Styling for the finish button */
+.finish-btn {
+    background-color: #27ae60;
+    color: white;
+    font-weight: bold;
+    border: none;
+    padding: 8px 15px;
+    margin-right: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.finish-btn:hover {
+    background-color: #2ecc71;
+}
+
 /* Results screen styles */
 .results-container {
     background-color: #fff;

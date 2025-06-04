@@ -89,6 +89,7 @@ function setupSegmentControls(audio) {
     const prevBtn = document.getElementById(config.prevSegmentBtnId);
     const nextBtn = document.getElementById(config.nextSegmentBtnId);
     const replayBtn = document.getElementById(config.replaySegmentBtnId);
+    const finishBtn = document.getElementById('finish-exercise-btn');
     
     if (prevBtn) {
         prevBtn.addEventListener('click', () => {
@@ -120,6 +121,20 @@ function setupSegmentControls(audio) {
                 inputContainer.style.display = 'none';
             }
             replayCurrentSegment(audio);
+        });
+    }
+
+    // Add finish button event listener
+    if (finishBtn) {
+        finishBtn.addEventListener('click', () => {
+            // Hide any visible input field when finishing
+            const inputContainer = document.getElementById(config.inputContainerId);
+            if (inputContainer) {
+                inputContainer.style.display = 'none';
+            }
+            
+            // Dispatch finish exercise event
+            document.dispatchEvent(new Event('finishExercise'));
         });
     }
 }
@@ -154,6 +169,13 @@ function createSegmentControls() {
     nextBtn.textContent = 'Next ►';
     nextBtn.title = 'Next segment';
     
+    // Create finish button
+    const finishBtn = document.createElement('button');
+    finishBtn.id = 'finish-exercise-btn';
+    finishBtn.className = 'control-btn finish-btn';
+    finishBtn.textContent = '✓ Finish';
+    finishBtn.title = 'Finish exercise and view results';
+    
     // Create segment indicator
     const segmentIndicator = document.createElement('div');
     segmentIndicator.id = config.segmentIndicatorId;
@@ -164,6 +186,7 @@ function createSegmentControls() {
     segmentContainer.appendChild(prevBtn);
     segmentContainer.appendChild(replayBtn);
     segmentContainer.appendChild(nextBtn);
+    segmentContainer.appendChild(finishBtn);
     segmentContainer.appendChild(segmentIndicator);
     
     // Append segment container after the regular controls

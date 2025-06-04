@@ -1,0 +1,121 @@
+/* Results screen styles */
+.results-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #222;
+    color: #e0e0e0;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.results-title {
+    color: #ff5722;
+    font-size: 28px;
+    margin-bottom: 30px;
+}
+
+.stats-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 40px;
+}
+
+.stat-box {
+    background-color: #2a2a2a;
+    padding: 15px 10px;
+    border-radius: 8px;
+    width: 22%;
+    min-width: 120px;
+}
+
+.stat-label {
+    color: #aaa;
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #ff5722;
+    margin: 10px 0;
+}
+
+.stat-detail {
+    color: #888;
+    font-size: 14px;
+}
+
+.user-text-title {
+    color: #e0e0e0;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.user-text-container {
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+    text-align: left;
+    line-height: 1.5;
+    font-size: 18px;
+}
+
+.error {
+    color: #e74c3c;
+}
+
+.segment-title {
+    color: #aaa;
+    text-align: center;
+    margin-bottom: 10px;
+    background-color: #333;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.segment-separator {
+    border: none;
+    border-top: 1px solid #444;
+    margin: 20px 0;
+}
+
+.new-dictation-btn {
+    background-color: #ff5722;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.new-dictation-btn:hover {
+    background-color: #e64a19;
+}
+
+/* Show finish button prominently when it's time to finish */
+.finish-btn {
+    background-color: #ff5722;
+    color: white;
+    margin-left: 10px;
+}
+
+.finish-btn-highlight {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 87, 34, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 87, 34, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 87, 34, 0);
+    }
+}

@@ -7,6 +7,12 @@ import { formatTime } from '../utils/helpers.js';
 // Store the current timeupdate handler reference
 let currentTimeUpdateHandler = null;
 
+// Track active playback state
+let isCurrentlyPlaying = false;
+
+// Add protection against rapid segment advancement
+let lastAdvanceTime = 0;
+
 // State for segment management
 const segmentState = {
     cues: [], // Array of VTT cue objects
@@ -33,31 +39,48 @@ export function initSegmentManager(cues) {
  * @param {HTMLAudioElement} audio - The audio element
  */
 export function playCurrentSegment(audio) {
+    // Prevent playback if we're already playing
+    if (isCurrentlyPlaying) {
+        console.log('Already playing a segment, ignoring request');
+        return;
+    }
+
     if (!segmentState.cues || segmentState.cues.length === 0) {
         console.error('No cues available to play');
         return;
     }
     
     const currentCue = segmentState.cues[segmentState.currentIndex];
+    console.log(`Starting segment ${segmentState.currentIndex + 1} at ${currentCue.startTime.toFixed(2)}`);
     
     // Remove any previous listener
     if (currentTimeUpdateHandler) {
         audio.removeEventListener('timeupdate', currentTimeUpdateHandler);
+        currentTimeUpdateHandler = null;
     }
     
     // Create new handler
     currentTimeUpdateHandler = () => {
+        // Only check end time if we're still playing the same segment
         // Log for debugging
         console.log(`Segment ${segmentState.currentIndex + 1}: Current time: ${audio.currentTime.toFixed(2)}, End time: ${currentCue.endTime.toFixed(2)}`);
         
-        // Check if current time has passed the end of the cue
         if (audio.currentTime >= currentCue.endTime - config.segmentTimeTolerance) {
-            console.log(`Ending segment ${segmentState.currentIndex + 1}`);
+            console.log(`Ending segment ${segmentState.currentIndex + 1} at time ${audio.currentTime.toFixed(2)}`);
+            
+            // Set flag that we've ended this segment
+            isCurrentlyPlaying = false;
+            
             audio.pause();
             segmentState.isPlaying = false;
-            audio.removeEventListener('timeupdate', currentTimeUpdateHandler);
             
-            // Dispatch an event that the segment has ended
+            // Remove the listener to prevent multiple firings
+            if (currentTimeUpdateHandler) {
+                audio.removeEventListener('timeupdate', currentTimeUpdateHandler);
+                currentTimeUpdateHandler = null;
+            }
+            
+            // Dispatch segment ended event
             const event = new CustomEvent('segmentEnded', {
                 detail: { 
                     index: segmentState.currentIndex,
@@ -71,20 +94,25 @@ export function playCurrentSegment(audio) {
     // Add proper error handling for seeking
     try {
         audio.currentTime = currentCue.startTime;
-        console.log(`Starting segment ${segmentState.currentIndex + 1} at ${currentCue.startTime.toFixed(2)}`);
+        
+        // Set flag that we're now playing
+        isCurrentlyPlaying = true;
+        
+        // Register new handler
+        audio.addEventListener('timeupdate', currentTimeUpdateHandler);
+        
+        // Play with error handling
+        audio.play().catch(error => {
+            console.error(`Failed to play segment ${segmentState.currentIndex + 1}:`, error);
+            isCurrentlyPlaying = false;
+        });
+        
+        segmentState.isPlaying = true;
+        
     } catch (error) {
         console.error(`Failed to seek to ${currentCue.startTime} for segment ${segmentState.currentIndex + 1}:`, error);
+        isCurrentlyPlaying = false;
     }
-    
-    // Register new handler
-    audio.addEventListener('timeupdate', currentTimeUpdateHandler);
-    
-    // Play with error handling
-    audio.play().catch(error => {
-        console.error(`Failed to play segment ${segmentState.currentIndex + 1}:`, error);
-    });
-    
-    segmentState.isPlaying = true;
 }
 
 /**
@@ -93,6 +121,16 @@ export function playCurrentSegment(audio) {
  * @returns {boolean} - True if moved to next segment, false if already at last segment
  */
 export function nextSegment(audio) {
+    // Prevent too-rapid advancements
+    const now = Date.now();
+    if (now - lastAdvanceTime < 800) { // 0.8 second cooldown
+        console.log('Ignoring rapid segment advancement request');
+        return false;
+    }
+    
+    // Update the timestamp
+    lastAdvanceTime = now;
+    
     if (segmentState.currentIndex < segmentState.cues.length - 1) {
         segmentState.currentIndex++;
         updateSegmentIndicator();

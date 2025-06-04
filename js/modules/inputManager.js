@@ -6,6 +6,9 @@ import { getCurrentSegment, getAllSegments } from './segmentManager.js';
 import { saveUserInput, getUserInput } from './userDataStore.js';
 import { compareTexts, generateHighlightedHTML, transformSpecialCharacters } from './textComparison.js';
 
+// Add protection against multiple rapid Enter key presses
+let isProcessingEnter = false;
+
 /**
  * Initialize the input manager
  */
@@ -104,10 +107,24 @@ function setupInputEventListeners() {
                     try {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
+                            
+                            // Stop accidental double-triggering
+                            if (isProcessingEnter) {
+                                console.log('Already processing an Enter keypress, ignoring');
+                                return;
+                            }
+                            
+                            isProcessingEnter = true;
                             handleSubmit();
+                            
+                            // Reset the flag after a delay
+                            setTimeout(() => {
+                                isProcessingEnter = false;
+                            }, 800); // Prevent multiple Enter presses within 0.8 seconds
                         }
                     } catch (keyError) {
                         try { console.error("Error handling keydown:", keyError); } catch (e) { /* Silence console errors */ }
+                        isProcessingEnter = false; // Reset flag on error
                     }
                 });
             } catch (e) {

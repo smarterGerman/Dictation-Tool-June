@@ -3,6 +3,17 @@
  * Includes German special character transformations and real-time error highlighting
  */
 
+// Add protection against auto-advancement too soon after segment change
+let lastSegmentAdvanceTime = 0;
+
+/**
+ * Notify the text comparison system about a segment change
+ * Called when segments are advanced to prevent unwanted auto-advancement
+ */
+export function notifySegmentChange() {
+    lastSegmentAdvanceTime = Date.now();
+}
+
 /**
  * Transform input text to normalize German special characters
  * @param {string} input - The user input text
@@ -151,6 +162,10 @@ export function compareTexts(userInput, referenceText) {
         };
     }
     
+    // Don't auto-advance if we recently changed segments
+    const now = Date.now();
+    const recentSegmentChange = (now - lastSegmentAdvanceTime < 1500); // 1.5 second safety window
+    
     // Transform special characters in user input
     const transformedInput = transformSpecialCharacters(userInput);
 
@@ -195,7 +210,13 @@ export function compareTexts(userInput, referenceText) {
     const errorCount = Math.max(0, refWords.length - correctWords);
     
     // Check if all words match
-    const isMatch = correctWords === refWords.length && userWords.length === refWords.length;
+    let isMatch = correctWords === refWords.length && userWords.length === refWords.length;
+    
+    // If we just changed segments, prevent auto-advancement
+    if (isMatch && recentSegmentChange) {
+        console.log('Skipping auto-advance: too soon since last segment change');
+        isMatch = false; // Prevent auto-advancement
+    }
     
     return {
         isMatch,

@@ -38,5 +38,10 @@ export const config = {
     segmentTimeTolerance: 0.05, // Reduced tolerance to prevent premature ending
     
     // Delay before automatically focusing the input field (ms)
-    autoFocusDelay: 100
+    autoFocusDelay: 100,
+    
+    // New timing configurations
+    segmentAdvanceDelay: 200,      // ms to wait before playing next segment
+    segmentAdvanceCooldown: 800,   // ms cooldown between segment advances
+    keyPressCooldown: 500          // ms cooldown between Enter key processing
 };

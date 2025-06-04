@@ -14,7 +14,7 @@ export function initPlayer(audioSrc) {
     const audio = document.createElement('audio');
     audio.id = 'audio-element';
     audio.src = audioSrc;
-    audio.preload = 'metadata';
+    audio.preload = 'auto';  // Change from 'metadata' to 'auto' for better loading
     
     // Add error handler for audio playback issues
     audio.addEventListener('error', (e) => {
@@ -22,6 +22,9 @@ export function initPlayer(audioSrc) {
         console.error('Error code:', audio.error ? audio.error.code : 'unknown');
         console.error('Error message:', audio.error ? audio.error.message : 'unknown');
     });
+    
+    // Force audio to begin loading
+    audio.load();
     
     // Add track element for VTT (optional, mostly for browsers that support native tracks)
     const track = document.createElement('track');

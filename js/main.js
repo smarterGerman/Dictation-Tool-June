@@ -7,6 +7,7 @@ import { initSegmentManager } from './modules/segmentManager.js';
 import { initInputManager } from './modules/inputManager.js';
 import { initUserDataStore } from './modules/userDataStore.js';
 import { initResultsScreen } from './modules/resultsScreen.js';
+import { notifySegmentChange } from './modules/textComparison.js';
 
 document.addEventListener('DOMContentLoaded', async function() {
     try {
@@ -38,17 +39,32 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Track if all segments are complete
         let completedSegments = new Set();
         
+        // Add protection against multiple rapid input submissions
+        let isProcessingInput = false;
+        
         // Listen for input submitted events
         document.addEventListener('inputSubmitted', function(e) {
-            const { index, text, isCorrect } = e.detail;
-            console.log(`Input submitted for segment ${index + 1}:`, text, isCorrect ? '(correct)' : '(incorrect)');
+            // Prevent multiple rapid submissions
+            if (isProcessingInput) {
+                console.log('Already processing input submission, ignoring');
+                return;
+            }
             
-            // Mark this segment as completed
-            completedSegments.add(index);
+            isProcessingInput = true;
             
-            // If all segments are completed, show the results screen
-            if (completedSegments.size === cues.length) {
-                setTimeout(() => {
+            try {
+                const { index, text, isCorrect } = e.detail;
+                console.log(`Input submitted for segment ${index + 1}:`, text, isCorrect ? '(correct)' : '(incorrect)');
+                
+                // Notify the text comparison system about the segment change
+                notifySegmentChange();
+                
+                // Mark this segment as completed
+                completedSegments.add(index);
+                
+                // If all segments are completed, show the results screen
+                if (completedSegments.size === cues.length) {
+                    setTimeout(() => {
                     resultsScreen.showResults();
                 }, 500);
                 return;
@@ -60,6 +76,12 @@ document.addEventListener('DOMContentLoaded', async function() {
                     const nextBtn = document.getElementById('next-segment-btn');
                     if (nextBtn) nextBtn.click();
                 }, 100);
+            }
+            } finally {
+                // Reset flag after a delay
+                setTimeout(() => {
+                    isProcessingInput = false;
+                }, 1000);
             }
         });
         
@@ -88,6 +110,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Listen for finish exercise event (when user clicks the Finish button)
         document.addEventListener('finishExercise', function() {
+            // Notify text comparison about a segment change to prevent auto-advance issues
+            notifySegmentChange();
+            
             // Show the results screen
             setTimeout(() => {
                 resultsScreen.showResults();

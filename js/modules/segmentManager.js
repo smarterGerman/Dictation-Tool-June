@@ -151,7 +151,7 @@ export function nextSegment(audio) {
     
     // If not at the last segment, proceed with normal advancement
     segmentState.currentIndex++;
-    updateSegmentUI();
+    updateSegmentIndicator();
     playCurrentSegment(audio);
 }
 

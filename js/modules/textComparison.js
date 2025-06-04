@@ -11,58 +11,87 @@
 export function transformSpecialCharacters(input) {
     if (!input) return '';
     
-    console.log("Before transformation:", JSON.stringify(input));
-    
-    let result = input;
-    
-    // Apply transformations
-    result = transformUmlauts(result);
-    result = transformEszett(result);
-    
-    // Only log if something changed
-    if (result !== input) {
-        console.log("After transformation:", JSON.stringify(result));
-        console.log("Transformations applied:", 
-            input.split('').map((char, i) => 
-                char !== result[i] ? `${char}${input[i+1] === 'e' ? 'e' : input[i+1] === ':' ? ':' : input[i+1] === '/' ? '/' : ''} → ${result[i]}` : null
-            ).filter(Boolean).join(', ')
-        );
+    try {
+        // Try-catch to handle any unexpected errors in the transformation process
+        let result = input;
+        
+        // Apply transformations in a specific order for best results
+        // 1. First transform letter+e patterns
+        result = transformLetterE(result);
+        
+        // 2. Then transform colon patterns
+        result = transformColon(result);
+        
+        // 3. Then transform slash patterns
+        result = transformSlash(result);
+        
+        // 4. Finally transform eszett
+        result = transformEszett(result);
+        
+        // Safer logging without stringification that might cause issues in some browsers
+        if (result !== input && typeof console !== 'undefined') {
+            try {
+                console.log("Transformation applied:", input, "→", result);
+            } catch (logError) {
+                // Silently fail if logging causes issues
+            }
+        }
+        
+        return result;
+    } catch (err) {
+        // Fallback in case of any error - return original input
+        console.error("Error in transformation:", err);
+        return input;
     }
-    
+}
+
+/**
+ * Transform letter+e notation to umlauts (ae → ä, oe → ö, ue → ü)
+ * @param {string} text - Input text
+ * @returns {string} - Transformed text
+ */
+function transformLetterE(text) {
+    // Use a more reliable method with simple single replacements
+    let result = text;
+    result = result.replace(/ae/g, 'ä');
+    result = result.replace(/oe/g, 'ö');
+    result = result.replace(/ue/g, 'ü');
+    result = result.replace(/Ae/g, 'Ä');
+    result = result.replace(/Oe/g, 'Ö');
+    result = result.replace(/Ue/g, 'Ü');
     return result;
 }
 
 /**
- * Transform umlaut alternative writings to proper umlauts
- * @param {string} text - The input text
- * @returns {string} - Text with transformed umlauts
+ * Transform colon notation to umlauts (a: → ä, o: → ö, u: → ü)
+ * @param {string} text - Input text
+ * @returns {string} - Transformed text
  */
-function transformUmlauts(text) {
-    // Fix 1: Ensure colon notation works properly (a: → ä, o: → ö, u: → ü)
-    text = text.replace(/a:/g, 'ä');
-    text = text.replace(/o:/g, 'ö');
-    text = text.replace(/u:/g, 'ü');
-    text = text.replace(/A:/g, 'Ä');
-    text = text.replace(/O:/g, 'Ö');
-    text = text.replace(/U:/g, 'Ü');
-    
-    // Fix 2: Ensure letter+e notation works (ae → ä, oe → ö, ue → ü)
-    text = text.replace(/ae/g, 'ä');
-    text = text.replace(/oe/g, 'ö');
-    text = text.replace(/ue/g, 'ü');
-    text = text.replace(/Ae/g, 'Ä');
-    text = text.replace(/Oe/g, 'Ö');
-    text = text.replace(/Ue/g, 'Ü');
-    
-    // Fix 3: Ensure slash notation works (a/ → ä, o/ → ö, u/ → ü)
-    text = text.replace(/a\//g, 'ä');
-    text = text.replace(/o\//g, 'ö');
-    text = text.replace(/u\//g, 'ü');
-    text = text.replace(/A\//g, 'Ä');
-    text = text.replace(/O\//g, 'Ö');
-    text = text.replace(/U\//g, 'Ü');
-    
-    return text;
+function transformColon(text) {
+    let result = text;
+    result = result.replace(/a:/g, 'ä');
+    result = result.replace(/o:/g, 'ö');
+    result = result.replace(/u:/g, 'ü');
+    result = result.replace(/A:/g, 'Ä');
+    result = result.replace(/O:/g, 'Ö');
+    result = result.replace(/U:/g, 'Ü');
+    return result;
+}
+
+/**
+ * Transform slash notation to umlauts (a/ → ä, o/ → ö, u/ → ü)
+ * @param {string} text - Input text
+ * @returns {string} - Transformed text
+ */
+function transformSlash(text) {
+    let result = text;
+    result = result.replace(/a\//g, 'ä');
+    result = result.replace(/o\//g, 'ö');
+    result = result.replace(/u\//g, 'ü');
+    result = result.replace(/A\//g, 'Ä');
+    result = result.replace(/O\//g, 'Ö');
+    result = result.replace(/U\//g, 'Ü');
+    return result;
 }
 
 /**

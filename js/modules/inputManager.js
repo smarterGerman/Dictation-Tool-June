@@ -93,41 +93,95 @@ function setupInputEventListeners() {
     });
     
     // Input changes (real-time saving, transformation, and comparison)
-    inputField.addEventListener('input', () => {
-        // Get the current raw input value
-        const rawInput = inputField.value;
-        
-        // Save cursor position before transformation
-        const cursorPosition = inputField.selectionStart;
-        
-        // Apply transformation for special characters - ALWAYS do this
-        const transformedInput = transformSpecialCharacters(rawInput);
-        
-        // Update the input field if transformation changed anything
-        if (transformedInput !== rawInput) {
-            console.log('Transformed input:', rawInput, '→', transformedInput);
-            
-            // Update the field with transformed text
-            inputField.value = transformedInput;
-            
-            // Restore cursor position - adjusted for transformation changes
-            inputField.setSelectionRange(
-                calculateNewCursorPosition(rawInput, transformedInput, cursorPosition),
-                calculateNewCursorPosition(rawInput, transformedInput, cursorPosition)
-            );
-        }
-        
-        const currentSegment = getCurrentSegment();
-        if (currentSegment) {
-            // Save the transformed input
-            saveUserInput(currentSegment.index, transformedInput);
-            
-            // Add/remove has-content class based on content
-            if (transformedInput.trim() !== '') {
-                inputField.classList.add('has-content');
-            } else {
-                inputField.classList.remove('has-content');
+    inputField.addEventListener('input', function inputHandler() {
+        // Full try-catch wrapper to ensure the handler doesn't break in any environment
+        try {
+            // Get the current raw input value with defensive coding
+            let rawInput = "";
+            try {
+                rawInput = inputField.value || "";
+            } catch (valueError) {
+                // If we can't get the value, use an empty string and continue
+                console.error("Failed to get input value:", valueError);
             }
+            
+            // Save cursor position before transformation
+            let cursorPosition = rawInput.length; // Default to end of text
+            try {
+                // This might fail in some iframe contexts
+                if (typeof inputField.selectionStart === 'number') {
+                    cursorPosition = inputField.selectionStart;
+                }
+            } catch (cursorError) {
+                // Already using default position, log error if console is available
+                try {
+                    console.log("Cursor position detection failed:", cursorError);
+                } catch (e) {/* Silently fail if console logging isn't available */}
+            }
+            
+            // Apply transformation for special characters - ALWAYS do this
+            // Use defensive coding pattern to handle potential errors
+            let transformedInput = rawInput;
+            try {
+                transformedInput = transformSpecialCharacters(rawInput);
+            } catch (transformError) {
+                // If transformation fails, use original input
+                try {
+                    console.error("Character transformation failed:", transformError);
+                } catch (e) {/* Silently fail if console logging isn't available */}
+            }
+            
+            // Update the input field if transformation changed anything
+            if (transformedInput !== rawInput) {
+                try {
+                    // Update the field with transformed text
+                    inputField.value = transformedInput;
+                    
+                    // Safely restore cursor position - using try-catch to avoid potential errors
+                    try {
+                        if (typeof inputField.setSelectionRange === 'function') {
+                            const newPosition = calculateNewCursorPosition(rawInput, transformedInput, cursorPosition);
+                            inputField.setSelectionRange(newPosition, newPosition);
+                        }
+                    } catch (selectionError) {
+                        // If setting selection range fails, we'll just continue without it
+                        try {
+                            console.log("Cursor position restoration not supported in this environment");
+                        } catch (e) {/* Silently fail if console logging isn't available */}
+                    }
+                } catch (updateError) {
+                    // If updating the field value fails, log the error if possible
+                    try {
+                        console.error("Failed to update input field with transformed text:", updateError);
+                    } catch (e) {/* Silently fail if console logging isn't available */}
+                }
+            }
+            
+            // Process current segment with error handling
+            try {
+                const currentSegment = getCurrentSegment();
+                if (currentSegment) {
+                    try {
+                        // Save the transformed input with error handling
+                        saveUserInput(currentSegment.index, transformedInput);
+                    } catch (saveError) {
+                        try { 
+                            console.error("Failed to save user input:", saveError);
+                        } catch (e) {/* Silently fail if console logging isn't available */}
+                    }
+                    
+                    try {
+                        // Add/remove has-content class based on content
+                        if (transformedInput.trim() !== '') {
+                            inputField.classList.add('has-content');
+                        } else {
+                            inputField.classList.remove('has-content');
+                        }
+                    } catch (classError) {
+                        try {
+                            console.error("Failed to update input field class:", classError);
+                        } catch (e) {/* Silently fail if console logging isn't available */}
+                    }
             
             // Real-time comparison and highlighting
             updateHighlighting(transformedInput, currentSegment.cue.text, highlightContainer);

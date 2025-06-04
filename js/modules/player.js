@@ -67,13 +67,26 @@ export function updateProgress(audio) {
  * @param {Array} [cues] - Optional array of segment cues
  */
 export function setAudioProgress(audio, e, cues) {
+    // Get the main progress bar element (not the clicked child element)
     const progressBar = document.getElementById(config.progressBarId);
-    const width = progressBar.clientWidth;
-    const clickX = e.offsetX;
-    const duration = audio.duration || 0;
+    if (!progressBar) {
+        console.error(`Progress bar element with ID '${config.progressBarId}' not found`);
+        return;
+    }
     
-    // Calculate the target time based on click position
-    const targetTime = (clickX / width) * duration;
+    // Get the absolute position of the progress bar
+    const rect = progressBar.getBoundingClientRect();
+    
+    // Calculate click position relative to the entire progress bar
+    const clickX = e.clientX - rect.left;
+    const width = rect.width;
+    
+    // Calculate percentage and target time
+    const clickPosition = clickX / width;
+    const targetTime = clickPosition * audio.duration;
+    
+    console.log(`Progress bar clicked at ${clickX.toFixed(0)}px / ${width.toFixed(0)}px = ${clickPosition.toFixed(2)} of duration ${audio.duration.toFixed(2)}s`);
+    console.log(`Calculated target time: ${targetTime.toFixed(2)}s`);
     
     // Find which segment this time belongs to
     const segmentIndex = findSegmentAtTime(targetTime);
@@ -82,12 +95,10 @@ export function setAudioProgress(audio, e, cues) {
         console.log(`Progress bar clicked - Position corresponds to segment ${segmentIndex + 1}`);
         
         // Jump to the beginning of the identified segment
-        // This updates currentIndex, UI indicator, and sets proper playback position
         jumpToSegment(audio, segmentIndex);
         
         // Don't auto-play unless it was already playing
         if (audio.paused) {
-            // Just position at the start of the segment, don't play
             console.log('Audio was paused - leaving it paused after segment jump');
         }
         
@@ -97,11 +108,6 @@ export function setAudioProgress(audio, e, cues) {
     // Fallback if segmentIndex wasn't found for some reason
     console.log(`Progress bar clicked - Setting time to ${targetTime.toFixed(2)}`);
     audio.currentTime = targetTime;
-    if (!audio.paused) {
-        audio.play().catch(error => {
-            console.error('Failed to resume playback after seeking:', error);
-        });
-    }
 }
 
 /**

@@ -229,15 +229,33 @@ export function getAllSegments() {
  * @returns {number} - The index of the segment containing this time
  */
 export function findSegmentAtTime(time) {
+    console.log(`Finding segment for time ${time.toFixed(2)}s`);
+    console.log(`Total segments: ${segmentState.cues.length}`);
+    
+    // Log a few segments for debugging
+    if (segmentState.cues.length > 0) {
+        console.log(`First segment: ${segmentState.cues[0].startTime.toFixed(2)}s - ${segmentState.cues[0].endTime.toFixed(2)}s`);
+        
+        if (segmentState.cues.length > 1) {
+            console.log(`Second segment: ${segmentState.cues[1].startTime.toFixed(2)}s - ${segmentState.cues[1].endTime.toFixed(2)}s`);
+        }
+        
+        if (segmentState.cues.length > 5) {
+            console.log(`Sixth segment: ${segmentState.cues[5].startTime.toFixed(2)}s - ${segmentState.cues[5].endTime.toFixed(2)}s`);
+        }
+    }
+    
     for (let i = 0; i < segmentState.cues.length; i++) {
         const cue = segmentState.cues[i];
+        console.log(`Checking segment ${i+1}: ${cue.startTime.toFixed(2)}s - ${cue.endTime.toFixed(2)}s against time ${time.toFixed(2)}s`);
+        
         if (time >= cue.startTime && time < cue.endTime) {
+            console.log(`Found exact match: segment ${i+1}`);
             return i;
         }
     }
     
     // If not found within any segment exactly, find the closest segment
-    // This handles edge cases like clicking past the last segment
     let closestIndex = 0;
     let closestDistance = Infinity;
     
@@ -253,6 +271,7 @@ export function findSegmentAtTime(time) {
         }
     }
     
+    console.log(`Selected closest segment: ${closestIndex+1} (distance: ${closestDistance.toFixed(2)}s)`);
     return closestIndex;
 }
 

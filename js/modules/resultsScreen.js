@@ -4,7 +4,7 @@
 import { config } from './config.js';
 import { getAllSegments } from './segmentManager.js';
 import { getAllUserInputs } from './userDataStore.js';
-import { compareTexts, generateHighlightedHTML } from './textComparison.js';
+import { compareTexts } from './textComparison.js';
 import { processInput } from './textComparison/index.js';
 import { calculateStats, updateInputDisplay } from './uiManager.js';
 
@@ -296,37 +296,6 @@ function generateResultsHTML(stats, segments, userInputs) {
     `;
     
     return html;
-}
-
-/**
- * Generate highlighted HTML for the results screen
- * @param {string} input - User input text
- * @param {Array} errorPositions - Array of error positions
- * @returns {string} - HTML with highlighted errors
- */
-function generateHighlightedHTML(input, errorPositions) {
-    if (!input) return '';
-    
-    // If no errors, all text is correct (green)
-    if (!errorPositions || errorPositions.length === 0) {
-        return `<span class="correct">${input}</span>`;
-    }
-    
-    // Build output with character-by-character highlighting
-    let output = '';
-    const chars = input.split('');
-    
-    chars.forEach((char, index) => {
-        if (errorPositions.includes(index)) {
-            // Error character (red)
-            output += `<span class="incorrect">${char}</span>`;
-        } else {
-            // Correct character (green)
-            output += `<span class="correct">${char}</span>`;
-        }
-    });
-    
-    return output;
 }
 
 /**

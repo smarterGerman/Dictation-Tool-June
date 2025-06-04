@@ -131,25 +131,28 @@ export function playCurrentSegment(audio) {
  * @returns {boolean} - True if moved to next segment, false if already at last segment
  */
 export function nextSegment(audio) {
-    // Always stop current audio and clear handler
+    // First pause any playing audio and clear handlers
     audio.pause();
+    
     if (currentTimeUpdateHandler) {
         audio.removeEventListener('timeupdate', currentTimeUpdateHandler);
         currentTimeUpdateHandler = null;
     }
+    
+    // Reset the playing state flag
     isCurrentlyPlaying = false;
-
-    // Advance if not at last segment
-    if (segmentState.currentIndex < segmentState.cues.length - 1) {
-        segmentState.currentIndex++;
-        updateSegmentIndicator();
-        playCurrentSegment(audio);
-        console.log('Advanced to segment', segmentState.currentIndex + 1, 'of', segmentState.cues.length);
-        return true;
-    } else {
-        console.log('Already at the last segment:', segmentState.currentIndex + 1, 'of', segmentState.cues.length);
-        return false;
+    
+    // Check if we're already at the last segment
+    if (segmentState.currentIndex >= segmentState.cues.length - 1) {
+        console.log('At last segment and Next clicked - showing results');
+        document.dispatchEvent(new CustomEvent('showResults'));
+        return;
     }
+    
+    // If not at the last segment, proceed with normal advancement
+    segmentState.currentIndex++;
+    updateSegmentUI();
+    playCurrentSegment(audio);
 }
 
 /**

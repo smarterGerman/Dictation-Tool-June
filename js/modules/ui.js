@@ -109,6 +109,7 @@ function setupSegmentControls(audio) {
             if (inputContainer) {
                 inputContainer.style.display = 'none';
             }
+             console.log('NEXT button clicked, skipping to next segment');
             nextSegment(audio);
         });
     }
@@ -223,5 +224,13 @@ export function addExitButton() {
         });
         
         console.log('Exit button added successfully');
+    }
+}
+
+// Ensure the next button is always enabled (remove any disabled state)
+function updateControlButtons() {
+    const nextBtn = document.getElementById('next-segment-btn');
+    if (nextBtn) {
+        nextBtn.disabled = false; // Always enable the next button
     }
 }

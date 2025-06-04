@@ -131,6 +131,15 @@ export function playCurrentSegment(audio) {
  * @returns {boolean} - True if moved to next segment, false if already at last segment
  */
 export function nextSegment(audio) {
+    // Stop the current audio playback immediately
+    audio.pause();
+    
+    // Clear any active timeupdate handler
+    if (currentTimeUpdateHandler) {
+        audio.removeEventListener('timeupdate', currentTimeUpdateHandler);
+        currentTimeUpdateHandler = null;
+    }
+    
     // Prevent too-rapid advancements
     const now = Date.now();
     if (now - lastAdvanceTime < 800) { // 0.8 second cooldown

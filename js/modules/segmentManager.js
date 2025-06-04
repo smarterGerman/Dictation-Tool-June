@@ -131,45 +131,25 @@ export function playCurrentSegment(audio) {
  * @returns {boolean} - True if moved to next segment, false if already at last segment
  */
 export function nextSegment(audio) {
-    // Stop the current audio playback immediately
+    // Always stop current audio and clear handler
     audio.pause();
-    
-    // Clear any active timeupdate handler
     if (currentTimeUpdateHandler) {
         audio.removeEventListener('timeupdate', currentTimeUpdateHandler);
         currentTimeUpdateHandler = null;
     }
-    
-    // Prevent too-rapid advancements
-    const now = Date.now();
-    if (now - lastAdvanceTime < 800) { // 0.8 second cooldown
-        console.log('Ignoring rapid segment advancement request');
+    isCurrentlyPlaying = false;
+
+    // Advance if not at last segment
+    if (segmentState.currentIndex < segmentState.cues.length - 1) {
+        segmentState.currentIndex++;
+        updateSegmentIndicator();
+        playCurrentSegment(audio);
+        console.log('Advanced to segment', segmentState.currentIndex + 1, 'of', segmentState.cues.length);
+        return true;
+    } else {
+        console.log('Already at the last segment:', segmentState.currentIndex + 1, 'of', segmentState.cues.length);
         return false;
     }
-    
-    // Update the timestamp
-    lastAdvanceTime = now;
-    
-    // Check if we're already at the last segment
-    if (segmentState.currentIndex >= segmentState.cues.length - 1) {
-        console.log('Already at the last segment, dispatching showResults event');
-        // Dispatch event to show results
-        document.dispatchEvent(new CustomEvent('showResults'));
-        return false;
-    }
-    
-    // Advance to next segment
-    segmentState.currentIndex++;
-    updateSegmentIndicator();
-    
-    // Check if this is now the last segment after advancing
-    const isLastSegment = segmentState.currentIndex === segmentState.cues.length - 1;
-    if (isLastSegment) {
-        console.log('Advanced to final segment');
-    }
-    
-    playCurrentSegment(audio);
-    return true;
 }
 
 /**

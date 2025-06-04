@@ -2,6 +2,15 @@
 export const defaultAudio = 'assets/audio/chap01.mp3';
 export const defaultVTT = 'assets/vtt/chap01.vtt';
 
+// Text Comparison configurations
+export const textComparisonConfig = {
+    minimumMatchThreshold: 0.3, // Minimum score to consider a match
+    caseSensitive: false,       // Whether to consider case in matching
+    strictPunctuation: false,   // Whether punctuation affects matching
+    language: 'de',             // Default language (German)
+    showMisspellingDetails: true // Whether to show detailed feedback for misspellings
+};
+
 export const config = {
     playerContainerId: 'player-container',
     audioPlayerId: 'audio-player',

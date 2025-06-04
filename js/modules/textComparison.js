@@ -11,43 +11,68 @@
 export function transformSpecialCharacters(input) {
     if (!input) return '';
     
-    // Transformations for German special characters
-    const transformations = [
-        { pattern: /([^a-zA-ZäöüÄÖÜß])oe([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: '$1ö$2' },
-        { pattern: /([^a-zA-ZäöüÄÖÜß])ae([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: '$1ä$2' },
-        { pattern: /([^a-zA-ZäöüÄÖÜß])ue([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: '$1ü$2' },
-        { pattern: /([^a-zA-ZäöüÄÖÜß])Oe([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: '$1Ö$2' },
-        { pattern: /([^a-zA-ZäöüÄÖÜß])Ae([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: '$1Ä$2' },
-        { pattern: /([^a-zA-ZäöüÄÖÜß])Ue([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: '$1Ü$2' },
-        { pattern: /([^a-zA-ZäöüÄÖÜß])ss([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: '$1ß$2' },
-        
-        // Special case for word beginning
-        { pattern: /^oe([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: 'ö$1' },
-        { pattern: /^ae([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: 'ä$1' },
-        { pattern: /^ue([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: 'ü$1' },
-        { pattern: /^Oe([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: 'Ö$1' },
-        { pattern: /^Ae([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: 'Ä$1' },
-        { pattern: /^Ue([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: 'Ü$1' },
-        { pattern: /^ss([^a-zA-ZäöüÄÖÜß]|$)/g, replacement: 'ß$1' },
-        
-        // Handle standalone words (complete word replacements)
-        { pattern: /\boe\b/g, replacement: 'ö' },
-        { pattern: /\bae\b/g, replacement: 'ä' },
-        { pattern: /\bue\b/g, replacement: 'ü' },
-        { pattern: /\bOe\b/g, replacement: 'Ö' },
-        { pattern: /\bAe\b/g, replacement: 'Ä' },
-        { pattern: /\bUe\b/g, replacement: 'Ü' },
-        { pattern: /\bss\b/g, replacement: 'ß' }
-    ];
+    console.log("Before transformation:", JSON.stringify(input));
     
     let result = input;
     
-    // Apply each transformation pattern
-    transformations.forEach(({ pattern, replacement }) => {
-        result = result.replace(pattern, replacement);
-    });
+    // Apply transformations
+    result = transformUmlauts(result);
+    result = transformEszett(result);
+    
+    // Only log if something changed
+    if (result !== input) {
+        console.log("After transformation:", JSON.stringify(result));
+        console.log("Transformations applied:", 
+            input.split('').map((char, i) => 
+                char !== result[i] ? `${char}${input[i+1] === 'e' ? 'e' : input[i+1] === ':' ? ':' : input[i+1] === '/' ? '/' : ''} → ${result[i]}` : null
+            ).filter(Boolean).join(', ')
+        );
+    }
     
     return result;
+}
+
+/**
+ * Transform umlaut alternative writings to proper umlauts
+ * @param {string} text - The input text
+ * @returns {string} - Text with transformed umlauts
+ */
+function transformUmlauts(text) {
+    // Fix 1: Ensure colon notation works properly (a: → ä, o: → ö, u: → ü)
+    text = text.replace(/a:/g, 'ä');
+    text = text.replace(/o:/g, 'ö');
+    text = text.replace(/u:/g, 'ü');
+    text = text.replace(/A:/g, 'Ä');
+    text = text.replace(/O:/g, 'Ö');
+    text = text.replace(/U:/g, 'Ü');
+    
+    // Fix 2: Ensure letter+e notation works (ae → ä, oe → ö, ue → ü)
+    text = text.replace(/ae/g, 'ä');
+    text = text.replace(/oe/g, 'ö');
+    text = text.replace(/ue/g, 'ü');
+    text = text.replace(/Ae/g, 'Ä');
+    text = text.replace(/Oe/g, 'Ö');
+    text = text.replace(/Ue/g, 'Ü');
+    
+    // Fix 3: Ensure slash notation works (a/ → ä, o/ → ö, u/ → ü)
+    text = text.replace(/a\//g, 'ä');
+    text = text.replace(/o\//g, 'ö');
+    text = text.replace(/u\//g, 'ü');
+    text = text.replace(/A\//g, 'Ä');
+    text = text.replace(/O\//g, 'Ö');
+    text = text.replace(/U\//g, 'Ü');
+    
+    return text;
+}
+
+/**
+ * Transform eszett alternative writings to proper eszett (ß)
+ * @param {string} text - The input text
+ * @returns {string} - Text with transformed eszett
+ */
+function transformEszett(text) {
+    // Replace "ss" with "ß"
+    return text.replace(/ss/g, 'ß');
 }
 
 /**

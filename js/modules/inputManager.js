@@ -92,25 +92,48 @@ function setupInputEventListeners() {
         }
     });
     
-    // Input changes (real-time saving and comparison)
+    // Input changes (real-time saving, transformation, and comparison)
     inputField.addEventListener('input', () => {
+        // Get the current raw input value
+        const rawInput = inputField.value;
+        
+        // Save cursor position before transformation
+        const cursorPosition = inputField.selectionStart;
+        
+        // Apply transformation for special characters - ALWAYS do this
+        const transformedInput = transformSpecialCharacters(rawInput);
+        
+        // Update the input field if transformation changed anything
+        if (transformedInput !== rawInput) {
+            console.log('Transformed input:', rawInput, '→', transformedInput);
+            
+            // Update the field with transformed text
+            inputField.value = transformedInput;
+            
+            // Restore cursor position - adjusted for transformation changes
+            inputField.setSelectionRange(
+                calculateNewCursorPosition(rawInput, transformedInput, cursorPosition),
+                calculateNewCursorPosition(rawInput, transformedInput, cursorPosition)
+            );
+        }
+        
         const currentSegment = getCurrentSegment();
         if (currentSegment) {
-            const userInput = inputField.value;
-            saveUserInput(currentSegment.index, userInput);
+            // Save the transformed input
+            saveUserInput(currentSegment.index, transformedInput);
             
             // Add/remove has-content class based on content
-            if (userInput.trim() !== '') {
+            if (transformedInput.trim() !== '') {
                 inputField.classList.add('has-content');
             } else {
                 inputField.classList.remove('has-content');
             }
             
             // Real-time comparison and highlighting
-            updateHighlighting(userInput, currentSegment.cue.text, highlightContainer);
+            updateHighlighting(transformedInput, currentSegment.cue.text, highlightContainer);
             
             // Check if input matches reference and auto-advance if correct
-            const comparison = compareTexts(userInput, currentSegment.cue.text);
+            const comparison = compareTexts(transformedInput, currentSegment.cue.text);
             if (comparison.isMatch) {
                 // Wait a short moment before auto-advancing to next segment
                 setTimeout(() => {
@@ -173,17 +196,22 @@ function updateHighlighting(userInput, referenceText, container) {
     
     if (!container) return;
     
+    // Always apply transformations to ensure consistency
+    const transformedInput = transformSpecialCharacters(userInput);
+    
     // Compare texts and get results
-    const comparison = compareTexts(userInput, referenceText);
+    const comparison = compareTexts(transformedInput, referenceText);
     
     // Generate HTML with highlighted errors
     const highlightedHTML = generateHighlightedHTML(
-        comparison.transformedInput || userInput, 
+        comparison.transformedInput || transformedInput, 
         comparison.errorPositions
     );
     
     // Update the container
     container.innerHTML = highlightedHTML;
+    
+    return comparison;
 }
 
 /**
@@ -194,17 +222,27 @@ function handleSubmit() {
     const inputField = document.getElementById(config.inputFieldId);
     
     if (currentSegment) {
-        // Save the current input
-        saveUserInput(currentSegment.index, inputField.value);
+        // Always apply transformations before submitting
+        const rawInput = inputField.value;
+        const transformedInput = transformSpecialCharacters(rawInput);
+        
+        // Update the field with the fully transformed text
+        if (transformedInput !== rawInput) {
+            inputField.value = transformedInput;
+        }
+        
+        // Save the transformed input
+        saveUserInput(currentSegment.index, transformedInput);
         
         // Compare texts for accuracy and determine if correct
-        const comparison = compareTexts(inputField.value, currentSegment.cue.text);
+        const comparison = compareTexts(transformedInput, currentSegment.cue.text);
         
         // Include comparison results in the event
         const submitEvent = new CustomEvent('inputSubmitted', {
             detail: { 
                 index: currentSegment.index,
-                text: inputField.value,
+                text: transformedInput,
+                rawText: rawInput,
                 transformedText: comparison.transformedInput,
                 isCorrect: comparison.isMatch,
                 errorPositions: comparison.errorPositions,
@@ -269,3 +307,42 @@ export function clearInput() {
         inputField.classList.remove('has-content');
     }
 }
+
+/**
+ * Calculate the new cursor position after text transformation
+ * @param {string} oldText - Text before transformation
+ * @param {string} newText - Text after transformation
+ * @param {number} oldPosition - Original cursor position
+ * @returns {number} - New cursor position
+ */
+function calculateNewCursorPosition(oldText, newText, oldPosition) {
+    // Simple approach: if text before cursor has been transformed, adjust cursor accordingly
+    const beforeCursor = oldText.substring(0, oldPosition);
+    const transformedBeforeCursor = transformSpecialCharacters(beforeCursor);
+    
+    // New position is the length of the transformed text up to the cursor
+    return transformedBeforeCursor.length;
+}
+
+/**
+ * Test special character transformations
+ * This function can be called from the console to verify transformations
+ */
+window.testTransformations = function() {
+    const testCases = [
+        'ba:rlin',
+        'shoener',
+        'scho:n',
+        'scho/n',
+        'straBe',
+        'strass',
+        'strase'
+    ];
+    
+    console.log('===== TESTING TRANSFORMATIONS =====');
+    testCases.forEach(test => {
+        const result = transformSpecialCharacters(test);
+        console.log(`${test} → ${result}`);
+    });
+    console.log('=================================');
+};

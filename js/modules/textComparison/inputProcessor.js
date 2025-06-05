@@ -12,9 +12,9 @@ import { findBestWordMatches } from './wordMatcher.js';
  * @param {string} inputText - The text entered by the user
  * @return {Object} - Detailed comparison results
  */
-export function processInput(referenceText, inputText) {
+export function processInput(referenceText, userInput) {
   if (!referenceText) return { words: [], extraWords: [] };
-  if (!inputText) {
+  if (!userInput) {
     // Return all expected words as missing
     const expectedWords = referenceText.trim().split(/\s+/);
     return {
@@ -32,7 +32,7 @@ export function processInput(referenceText, inputText) {
   
   // Split into words, preserving punctuation as part of words
   const expectedWords = referenceText.trim().split(/\s+/);
-  const actualWords = inputText.trim().split(/\s+/);
+  const actualWords = userInput.trim().split(/\s+/);
   
   // Find best matches between expected and actual words
   const matchResult = findBestWordMatches(expectedWords, actualWords);
@@ -44,7 +44,7 @@ export function processInput(referenceText, inputText) {
   const extraWords = matchResult.extraWords ? matchResult.extraWords.length : 0;
   
   // Return rich result object with detailed information
-  return {
+  const result = {
     words: matchResult.words,
     extraWords: matchResult.extraWords,
     stats: {
@@ -57,7 +57,35 @@ export function processInput(referenceText, inputText) {
         ? correctWords / expectedWords.length 
         : 0
     },
-    inputText: inputText,
-    referenceText: referenceText
+    inputText: userInput,
+    referenceText: referenceText,
+    
+    // Add character position tracking
+    currentInputPosition: userInput.length,
+    charactersTyped: userInput.split(''),
+    
+    // Map user input positions to reference word indices
+    characterMapping: []
   };
+  
+  // Calculate which character in user input maps to which word in reference
+  let charIndex = 0;
+  for (let i = 0; i < expectedWords.length; i++) {
+    const word = expectedWords[i];
+    for (let j = 0; j < word.length; j++) {
+      if (charIndex < userInput.length) {
+        result.characterMapping.push({
+          inputChar: userInput.charAt(charIndex),
+          expectedWord: word,
+          wordIndex: i,
+          charIndex: j
+        });
+        charIndex++;
+      } else {
+        break;
+      }
+    }
+  }
+  
+  return result;
 }

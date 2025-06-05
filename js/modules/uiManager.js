@@ -242,18 +242,15 @@ export function generatePlaceholdersForReference(referenceText) {
 }
 
 /**
- * Update placeholders based on comparison results
+ * Update placeholders based on comparison results with character-by-character display
  * @param {Object} result - Comparison result from processInput
  * @param {HTMLElement} placeholderContainer - Container with placeholders
  */
 export function updatePlaceholders(result, placeholderContainer) {
-  if (!result || !result.words || !placeholderContainer) return;
+  if (!result || !placeholderContainer) return;
   
-  // First clear any previous status
   const allWords = placeholderContainer.querySelectorAll('.word-placeholder');
-  allWords.forEach(word => {
-    word.className = 'word-placeholder'; // Reset classes
-  });
+  const userInput = result.inputText || '';
   
   // Process each word in the comparison result
   result.words.forEach((wordResult, wordIndex) => {
@@ -262,39 +259,75 @@ export function updatePlaceholders(result, placeholderContainer) {
     const wordElement = allWords[wordIndex];
     const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
     
-    // Apply appropriate class based on status
-    if (wordResult.status === 'correct') {
-      // For correct words, reveal the letters in green
-      letterPlaceholders.forEach(letterSpan => {
-        letterSpan.textContent = letterSpan.dataset.letter;
-        letterSpan.classList.add('revealed');
-      });
-      wordElement.classList.add('word-correct');
-    } 
-    else if (wordResult.status === 'misspelled') {
-      // For misspelled words, show the letters in red with wavy underline
-      letterPlaceholders.forEach(letterSpan => {
-        letterSpan.textContent = letterSpan.dataset.letter;
-      });
-      wordElement.classList.add('word-misspelled');
+    // Apply word status class
+    wordElement.className = 'word-placeholder';
+    if (wordResult.status !== 'missing') {
+      wordElement.classList.add(`word-${wordResult.status}`);
     }
-    // Missing words stay as underscores with no class added
+    
+    // Reset all letters first to underscore state
+    letterPlaceholders.forEach(letterSpan => {
+      letterSpan.textContent = '_';
+      letterSpan.className = 'letter-placeholder';
+    });
   });
   
-  // Handle extra words display
+  // Character-by-character display implementation
+  // First, create a simple mapping from user input to reference text
+  const inputWords = userInput.trim().split(/\s+/);
+  let currentInputPos = 0;
+  
+  // For each word the user has entered
+  inputWords.forEach((inputWord, inputWordIndex) => {
+    // Find which reference word this matches with
+    let matchedRefWordIndex = -1;
+    
+    // Look for this word in our comparison results
+    result.words.forEach((wordResult, refWordIndex) => {
+      if (wordResult.inputWordIndex === inputWordIndex || 
+          (wordResult.word && wordResult.word.toLowerCase() === inputWord.toLowerCase())) {
+        matchedRefWordIndex = refWordIndex;
+      }
+    });
+    
+    // If we found a matching reference word
+    if (matchedRefWordIndex !== -1 && matchedRefWordIndex < allWords.length) {
+      const wordElement = allWords[matchedRefWordIndex];
+      const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+      const wordStatus = result.words[matchedRefWordIndex].status;
+      
+      // Show characters that have been typed
+      for (let i = 0; i < Math.min(inputWord.length, letterPlaceholders.length); i++) {
+        const letterSpan = letterPlaceholders[i];
+        letterSpan.textContent = letterSpan.dataset.letter;
+        letterSpan.classList.add('revealed');
+        
+        // Apply status class to each letter
+        if (wordStatus === 'correct') {
+          letterSpan.classList.add('correct');
+        } else if (wordStatus === 'misspelled') {
+          letterSpan.classList.add('misspelled');
+        }
+      }
+    }
+    
+    currentInputPos += inputWord.length + 1; // +1 for space
+  });
+  
+  // Handle extra words if any
   if (result.extraWords && result.extraWords.length > 0) {
     let extraWordsContainer = placeholderContainer.querySelector('.extra-words-container');
+    
+    // Create container for extra words if it doesn't exist
     if (!extraWordsContainer) {
       extraWordsContainer = document.createElement('div');
       extraWordsContainer.classList.add('extra-words-container');
       placeholderContainer.appendChild(extraWordsContainer);
-    } else {
-      extraWordsContainer.innerHTML = '';
     }
     
-    // Add label and extra words
-    extraWordsContainer.textContent = 'Extra: ';
+    extraWordsContainer.innerHTML = 'Extra: ';
     
+    // Add each extra word
     result.extraWords.forEach(extraWord => {
       const wordSpan = document.createElement('span');
       wordSpan.textContent = extraWord.word;
@@ -302,5 +335,11 @@ export function updatePlaceholders(result, placeholderContainer) {
       extraWordsContainer.appendChild(wordSpan);
       extraWordsContainer.appendChild(document.createTextNode(' '));
     });
+  } else {
+    // Remove extra words container if no extra words
+    const extraWordsContainer = placeholderContainer.querySelector('.extra-words-container');
+    if (extraWordsContainer) {
+      extraWordsContainer.remove();
+    }
   }
 }

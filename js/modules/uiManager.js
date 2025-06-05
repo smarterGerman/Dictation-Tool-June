@@ -13,48 +13,55 @@ export function updateInputDisplay(comparisonResult, containerElement) {
   // Clear previous content
   containerElement.innerHTML = '';
   
-  // Add expected words with appropriate styling
-  comparisonResult.words.forEach(wordResult => {
+  // No results or empty input, don't show anything
+  if (!comparisonResult || !comparisonResult.words) {
+    return;
+  }
+  
+  // Get actual user input text to determine what to show
+  const userInput = comparisonResult.inputText || '';
+  
+  // If there's no user input, don't show anything
+  if (!userInput.trim()) {
+    return;
+  }
+  
+  // Instead of filtering expected words, directly use the user's input text
+  const userWords = userInput.trim().split(/\s+/);
+  
+  // Process each word the user typed
+  userWords.forEach(userWord => {
     const wordElement = document.createElement('span');
-    wordElement.textContent = wordResult.word || wordResult.expected;
+    wordElement.textContent = userWord;
     
-    // Apply appropriate class based on status
-    switch (wordResult.status) {
-      case 'correct':
-        wordElement.classList.add('word-correct');
-        break;
-      case 'misspelled':
-        wordElement.classList.add('word-misspelled');
-        wordElement.setAttribute('title', `Expected: ${wordResult.expected}`);
-        break;
-      case 'missing':
-        wordElement.classList.add('word-missing');
-        break;
+    // Find if this word matches any word in the comparison results
+    const matchedWord = comparisonResult.words.find(w => 
+      w.word === userWord || // Exact match
+      (w.word && w.word.toLowerCase() === userWord.toLowerCase()) // Case-insensitive match
+    );
+    
+    // Apply appropriate class based on match status
+    if (matchedWord && matchedWord.status === 'correct') {
+      wordElement.classList.add('word-correct');
+    } else if (matchedWord && matchedWord.status === 'misspelled') {
+      wordElement.classList.add('word-misspelled');
+      wordElement.setAttribute('title', `Expected: ${matchedWord.expected}`);
+    } else {
+      // Word didn't match any expected word, might be extra
+      const extraMatch = comparisonResult.extraWords && 
+        comparisonResult.extraWords.find(e => e.word === userWord);
+      
+      if (extraMatch) {
+        wordElement.classList.add('word-extra');
+      } else {
+        // Unclassified word - could be waiting for more matches
+        wordElement.classList.add('word-unverified');
+      }
     }
     
     containerElement.appendChild(wordElement);
     containerElement.appendChild(document.createTextNode(' '));
   });
-  
-  // Add extra words if any
-  if (comparisonResult.extraWords && comparisonResult.extraWords.length > 0) {
-    const extraContainer = document.createElement('div');
-    extraContainer.classList.add('extra-words-container');
-    
-    const extraLabel = document.createElement('span');
-    extraLabel.textContent = 'Extra words: ';
-    extraContainer.appendChild(extraLabel);
-    
-    comparisonResult.extraWords.forEach(extraWord => {
-      const wordElement = document.createElement('span');
-      wordElement.textContent = extraWord.word;
-      wordElement.classList.add('word-extra');
-      extraContainer.appendChild(wordElement);
-      extraContainer.appendChild(document.createTextNode(' '));
-    });
-    
-    containerElement.appendChild(extraContainer);
-  }
 }
 
 /**

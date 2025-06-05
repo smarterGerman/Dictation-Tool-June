@@ -347,55 +347,35 @@ function updateHighlighting(userInput, referenceText, container) {
         // Always apply transformations to ensure consistency
         const transformedInput = transformSpecialCharacters(userInput);
         
-        // Use legacy comparison system as fallback
-        // useAdvancedComparison is defined at the module level
-        let comparison;
-        
-        if (useAdvancedComparison) {
-            try {
-                // Process input using the new advanced algorithm
-                const result = processInput(referenceText, transformedInput);
-                
-                // Update UI using the new display function
-                updateInputDisplay(result, container);
-                
-                // Create a compatibility object for legacy code
-                comparison = {
-                    isMatch: result.words.every(w => w.status === 'correct') && 
-                             (!result.extraWords || result.extraWords.length === 0),
-                    transformedInput,
-                    errorPositions: [],
-                    errorCount: result.words.filter(w => w.status !== 'correct').length + 
-                                (result.extraWords ? result.extraWords.length : 0),
-                    correctWords: result.words.filter(w => w.status === 'correct').length,
-                    totalWords: result.words.length
-                };
-                
-                // Successfully used advanced comparison, so return
-                return comparison;
-            } catch (advancedError) {
-                console.error("Advanced comparison failed, falling back to legacy:", advancedError);
-                useAdvancedComparison = false;
-            }
-        }
-        
-        if (!useAdvancedComparison) {
-            // Compare texts using the legacy system
-            comparison = compareTexts(transformedInput, referenceText);
+        try {
+            // Process input using the new advanced algorithm
+            const result = processInput(referenceText, transformedInput);
             
-            // Generate HTML with highlighted errors
-            const highlightedHTML = generateHighlightedHTML(
-                comparison.transformedInput || transformedInput, 
-                comparison.errorPositions
-            );
+            // Add the raw input text to the result for display purposes
+            result.inputText = transformedInput;
             
-            // Update the container
-            container.innerHTML = highlightedHTML;
+            // Update UI using the display function
+            updateInputDisplay(result, container);
             
-            return comparison;
+            // Log for debugging
+            // console.log("Comparison result:", JSON.stringify(result));
+            
+            return {
+                isMatch: result.words.every(w => w.status === 'correct') && 
+                         (!result.extraWords || result.extraWords.length === 0),
+                transformedInput,
+                errorPositions: [],
+                errorCount: result.words.filter(w => w.status !== 'correct').length + 
+                            (result.extraWords ? result.extraWords.length : 0),
+                correctWords: result.words.filter(w => w.status === 'correct').length,
+                totalWords: result.words.length
+            };
+        } catch (advancedError) {
+            console.error("Text comparison error:", advancedError);
+            return { isMatch: false, errorPositions: [] };
         }
     } catch (error) {
-        try { console.error("Error in updateHighlighting:", error); } catch (e) { /* Silence console errors */ }
+        console.error("Error in updateHighlighting:", error);
         return { isMatch: false, errorPositions: [] };
     }
 }

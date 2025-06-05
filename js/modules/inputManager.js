@@ -1,344 +1,147 @@
 /**
- * Module for managing user input fields and focus
- * Integrates with the updated text comparison system
+ * Input Manager Module
+ * Handles user input processing and integration with text comparison
  */
-import { config, textComparisonConfig } from './config.js';
-import { getCurrentSegment, getAllSegments } from './segmentManager.js';
+
 import { saveUserInput, getUserInput } from './userDataStore.js';
+import { getCurrentSegment, nextSegment, jumpToSegment } from './segmentManager.js';
+import { config } from './config.js';
 import { 
-  transformSpecialCharacters, 
-  notifySegmentChange, 
-  processInput, 
-  compareTexts 
-} from './textComparison.js';
+    transformSpecialCharacters, 
+    processInput, 
+    notifySegmentChange 
+} from './textComparison/index.js';
 import { updateInputDisplay } from './uiManager.js';
-import { debounce } from '../utils/performance.js';
 
-// Add protection against multiple rapid Enter key presses
-let isProcessingEnter = false;
+// Track input state
+let inputField = null;
+let highlightContainer = null;
+let segmentEnded = false;
+let currentInputTimer = null;
 
-// Flag to enable/disable advanced comparison (default: enabled)
-let useAdvancedComparison = true;
+/**
+ * Check if the current segment is the last segment
+ * @returns {boolean} - True if current segment is the last one
+ */
+function isLastSegment() {
+    const segment = getCurrentSegment();
+    return segment ? segment.isLast : false;
+}
 
 /**
  * Initialize the input manager
  */
 export function initInputManager() {
-    // Make sure the input container exists
-    createInputElements();
+    // Find the input field and highlight container
+    inputField = document.getElementById(config.inputFieldId);
+    highlightContainer = document.getElementById(config.highlightContainerId);
     
-    // Listen for segment ended events
+    if (inputField) {
+        // Use a debounced approach to input handling for better performance
+        inputField.addEventListener('input', debounce(handleInputEvent, 50));
+        
+        // Listen for key presses to handle special controls
+        inputField.addEventListener('keydown', handleKeyDown);
+    } else {
+        console.error('Input field element not found!');
+    }
+    
+    // Add event listeners for segment events
     document.addEventListener('segmentEnded', handleSegmentEnded);
+    document.addEventListener('segmentStarted', handleSegmentStarted);
     
-    // Return input manager public methods
+    // Return public interface
     return {
-        showInputField,
-        hideInputField,
-        setFocus,
-        getCurrentInputValue,
-        clearInput,
-        setAdvancedComparison: (enabled) => { useAdvancedComparison = enabled; }
+        clearCurrentInput
     };
 }
 
 /**
- * Create the input field elements if they don't exist
+ * Debounce function to limit how often a function is called
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - Wait time in ms
+ * @return {Function} - Debounced function
  */
-function createInputElements() {
-    // Check if input container already exists
-    let inputContainer = document.getElementById(config.inputContainerId);
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+/**
+ * Handle user input events with debouncing
+ * @param {Event} event - Input event
+ */
+function handleInputEvent(event) {
+    const userInput = inputField.value || '';
+    const segment = getCurrentSegment();
     
-    // If it doesn't exist, create it
-    if (!inputContainer) {
-        try {
-            inputContainer = document.createElement('div');
-            inputContainer.id = config.inputContainerId;
-            inputContainer.className = 'input-container';
+    if (!segment) return;
+    
+    const referenceText = segment.text;
+    
+    // Save user input for this segment
+    saveUserInput(segment.index, userInput);
+    
+    // Update input field appearance
+    if (userInput.trim()) {
+        inputField.classList.add('has-content');
+    } else {
+        inputField.classList.remove('has-content');
+    }
+    
+    // Update highlighting based on comparison
+    updateHighlighting(userInput, referenceText, highlightContainer);
+    
+    // If segment has ended and input matches well enough, auto-advance
+    const shouldAutoAdvance = config.autoAdvanceOnMatch && segmentEnded;
+    const currentSegment = getCurrentSegment();
+    const isLastSegment = currentSegment && currentSegment.isLast;
+
+    if (shouldAutoAdvance && !isLastSegment) {
+        const result = updateHighlighting(userInput, referenceText);
+        
+        // Auto-advance if accuracy is good enough and there's been sufficient input
+        if (result && 
+            result.isMatch && 
+            userInput.length > (referenceText.length * 0.5)) {
             
-            // Create the highlight container for displaying real-time comparison
-            const highlightContainer = document.createElement('div');
-            highlightContainer.id = 'highlight-container';
-            highlightContainer.className = 'highlight-container';
-            
-            // Create the input field
-            const inputField = document.createElement('textarea');
-            inputField.id = config.inputFieldId;
-            inputField.className = 'transcription-input';
-            inputField.placeholder = 'Type what you heard...';
-            inputField.setAttribute('autocomplete', 'off');
-            inputField.setAttribute('autocorrect', 'off');
-            inputField.setAttribute('spellcheck', 'false');
-            
-            // Create submit button
-            const submitButton = document.createElement('button');
-            submitButton.id = config.submitBtnId;
-            submitButton.className = 'control-btn submit-btn';
-            submitButton.textContent = 'Submit';
-            
-            // Add elements to container
-            inputContainer.appendChild(highlightContainer);
-            inputContainer.appendChild(inputField);
-            inputContainer.appendChild(submitButton);
-            
-            // Add container to the player
-            const playerContainer = document.getElementById(config.playerContainerId);
-            if (playerContainer) {
-                playerContainer.appendChild(inputContainer);
-                
-                // Add event listeners
-                setupInputEventListeners();
-            }
-        } catch (error) {
-            try {
-                console.error("Error creating input elements:", error);
-            } catch (e) { /* Silence console errors */ }
+            clearTimeout(currentInputTimer);
+            currentInputTimer = setTimeout(() => {
+                const audio = document.getElementById(config.audioPlayerId);
+                nextSegment(audio);
+            }, config.autoAdvanceDelay);
         }
     }
 }
 
 /**
- * Set up event listeners for the input field and submit button
+ * Handle key down events
+ * @param {KeyboardEvent} event - Key event
  */
-function setupInputEventListeners() {
-    try {
-        const inputField = document.getElementById(config.inputFieldId);
-        const submitButton = document.getElementById(config.submitBtnId);
-        const highlightContainer = document.getElementById('highlight-container');
+function handleKeyDown(event) {
+    // Tab to advance segments
+    if (event.key === 'Tab') {
+        event.preventDefault();
         
-        if (inputField && submitButton) {
-            // Submit button click
-            try {
-                submitButton.addEventListener('click', handleSubmit);
-            } catch (e) {
-                try { console.error("Error setting up submit button listener:", e); } catch (e) { /* Silence console errors */ }
-            }
-            
-            // Enter key in textarea (with shift+enter for new line)
-            try {
-                inputField.addEventListener('keydown', (e) => {
-                    try {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            
-                            // Stop accidental double-triggering
-                            if (isProcessingEnter) {
-                                console.log('Already processing an Enter keypress, ignoring');
-                                return;
-                            }
-                            
-                            isProcessingEnter = true;
-                            handleSubmit();
-                            
-                            // Reset the flag after a delay
-                            setTimeout(() => {
-                                isProcessingEnter = false;
-                            }, 800); // Prevent multiple Enter presses within 0.8 seconds
-                        }
-                    } catch (keyError) {
-                        try { console.error("Error handling keydown:", keyError); } catch (e) { /* Silence console errors */ }
-                        isProcessingEnter = false; // Reset flag on error
-                    }
-                });
-            } catch (e) {
-                try { console.error("Error setting up keydown listener:", e); } catch (e) { /* Silence console errors */ }
-            }
-            
-            // Input changes (real-time saving, transformation, and comparison)
-            try {
-                inputField.addEventListener('input', () => {
-                    handleInputEvent(inputField, highlightContainer);
-                });
-            } catch (e) {
-                try { console.error("Error setting up input listener:", e); } catch (e) { /* Silence console errors */ }
-            }
-        }
-    } catch (error) {
-        try { console.error("Error in setupInputEventListeners:", error); } catch (e) { /* Silence console errors */ }
-    }
-}
-
-/**
- * Handle the input event with robust error handling
- * @param {HTMLInputElement} inputField - The input field element 
- * @param {HTMLElement} highlightContainer - The container for highlighted text
- */
-function handleInputEvent(inputField, highlightContainer) {
-    try {
-        // Default values in case of errors
-        let rawInput = "";
-        let transformedInput = "";
-        let cursorPosition = 0;
-        
-        // Step 1: Get the current raw input value
-        try {
-            if (inputField && typeof inputField.value === 'string') {
-                rawInput = inputField.value;
-            }
-        } catch (valueError) { 
-            try { console.warn("Could not get input value:", valueError); } catch (e) { /* Silence console errors */ }
-        }
-        
-        // Step 2: Save cursor position before transformation
-        try {
-            if (inputField && typeof inputField.selectionStart === 'number') {
-                cursorPosition = inputField.selectionStart;
-            } else {
-                cursorPosition = rawInput.length; // Default to end of text
-            }
-        } catch (cursorError) {
-            cursorPosition = rawInput.length; // Default to end of text
-            try { console.warn("Could not get cursor position:", cursorError); } catch (e) { /* Silence console errors */ }
-        }
-        
-        // Step 3: Apply transformation for special characters
-        try {
-            transformedInput = transformSpecialCharacters(rawInput);
-        } catch (transformError) {
-            transformedInput = rawInput; // Fall back to raw input
-            try { console.error("Character transformation failed:", transformError); } catch (e) { /* Silence console errors */ }
-        }
-        
-        // Step 4: Update the input field if transformation changed anything
-        if (transformedInput !== rawInput) {
-            try {
-                inputField.value = transformedInput;
-                
-                // Step 5: Restore cursor position
-                try {
-                    if (typeof inputField.setSelectionRange === 'function') {
-                        const newPosition = calculateNewCursorPosition(rawInput, transformedInput, cursorPosition);
-                        inputField.setSelectionRange(newPosition, newPosition);
-                    }
-                } catch (selectionError) {
-                    try { console.warn("Could not restore cursor position:", selectionError); } catch (e) { /* Silence console errors */ }
-                }
-            } catch (updateError) {
-                try { console.error("Could not update input with transformed text:", updateError); } catch (e) { /* Silence console errors */ }
-            }
-        }
-        
-        // Step 6: Process current segment
-        try {
+        if (event.shiftKey) {
+            // Previous segment - Update function call
+            const audio = document.getElementById(config.audioPlayerId);
             const currentSegment = getCurrentSegment();
             if (currentSegment) {
-                // Step 7: Save the transformed input
-                try {
-                    saveUserInput(currentSegment.index, transformedInput);
-                } catch (saveError) {
-                    try { console.error("Failed to save user input:", saveError); } catch (e) { /* Silence console errors */ }
-                }
-                
-                // Step 8: Update visual state based on content
-                try {
-                    if (transformedInput.trim() !== '') {
-                        inputField.classList.add('has-content');
-                    } else {
-                        inputField.classList.remove('has-content');
-                    }
-                } catch (classError) {
-                    try { console.warn("Failed to update input field class:", classError); } catch (e) { /* Silence console errors */ }
-                }
-                
-                // Step 9: Update real-time highlighting
-                try {
-                    if (highlightContainer) {
-                        updateHighlighting(transformedInput, currentSegment.cue.text, highlightContainer);
-                    }
-                } catch (highlightError) {
-                    try { console.error("Failed to update highlighting:", highlightError); } catch (e) { /* Silence console errors */ }
-                }
-                
-                // Step 10: Check for auto-advance on match
-                try {
-                    const comparison = compareTexts(transformedInput, currentSegment.cue.text);
-                    if (comparison.isMatch) {
-                        // Wait a short moment before auto-advancing
-                        setTimeout(() => {
-                            try {
-                                // Only auto-advance if still matched
-                                const currentInput = inputField.value || "";
-                                const newComparison = compareTexts(currentInput, currentSegment.cue.text);
-                                if (newComparison.isMatch) {
-                                    handleSubmit();
-                                }
-                            } catch (autoAdvanceError) {
-                                try { console.error("Error in auto-advance:", autoAdvanceError); } catch (e) { /* Silence console errors */ }
-                            }
-                        }, 1000); // 1 second delay
-                    }
-                } catch (comparisonError) {
-                    try { console.error("Failed to compare texts:", comparisonError); } catch (e) { /* Silence console errors */ }
-                }
+                // Use jumpToSegment instead of playSegment
+                jumpToSegment(audio, currentSegment.index);
             }
-        } catch (segmentError) {
-            try { console.error("Failed to process current segment:", segmentError); } catch (e) { /* Silence console errors */ }
-        }
-    } catch (error) {
-        try { console.error("Critical error in handleInputEvent:", error); } catch (e) { /* Silence console errors */ }
-    }
-}
-
-/**
- * Handle the end of a segment playback
- * @param {CustomEvent} e - Custom event with segment details
- */
-function handleSegmentEnded(e) {
-    try {
-        const { index, cue, isLastSegment } = e.detail;
-        
-        console.log(`Segment ${index + 1} ended, isLastSegment: ${isLastSegment}`);
-        
-        // Notify the text comparison system about the segment change
-        // This prevents unwanted auto-advancement too soon
-        try {
-            notifySegmentChange();
-        } catch (notifyError) {
-            console.warn("Failed to notify segment change:", notifyError);
-        }
-        
-        // If this is the last segment, check if we should show results instead
-        // if (isLastSegment) {
-        //    console.log('Last segment ended, input manager will not show input field');
-        //    return;
-        // }
-        
-        // Show the input field for non-last segments
-        showInputField();
-        
-        // Load any existing input for this segment
-        try {
-            loadExistingInput(index);
-        } catch (loadError) {
-            try { console.error("Failed to load existing input:", loadError); } catch (e) { /* Silence console errors */ }
-        }
-        
-        // Set focus to the input field
-        setFocus();
-    } catch (error) {
-        try { console.error("Error in handleSegmentEnded:", error); } catch (e) { /* Silence console errors */ }
-    }
-}
-
-/**
- * Load existing input for a segment if available
- * @param {number} segmentIndex - The index of the segment
- */
-function loadExistingInput(segmentIndex) {
-    try {
-        const inputField = document.getElementById(config.inputFieldId);
-        if (inputField) {
-            const savedInput = getUserInput(segmentIndex);
-            
-            if (savedInput) {
-                inputField.value = savedInput;
-                inputField.classList.add('has-content');
-            } else {
-                inputField.value = '';
-                inputField.classList.remove('has-content');
+        } else {
+            // Next segment
+            if (!isLastSegment()) {
+                // Get the audio element
+                const audio = document.getElementById(config.audioPlayerId);
+                nextSegment(audio);
             }
         }
-    } catch (error) {
-        try { console.error("Error in loadExistingInput:", error); } catch (e) { /* Silence console errors */ }
     }
 }
 
@@ -348,248 +151,133 @@ function loadExistingInput(segmentIndex) {
  * @param {string} userInput - Current user input
  * @param {string} referenceText - Reference text to compare against
  * @param {HTMLElement} container - Container element to update
+ * @returns {Object} - Comparison result
  */
 function updateHighlighting(userInput, referenceText, container) {
     try {
         if (!container) {
-            container = document.getElementById('highlight-container');
+            container = document.getElementById(config.highlightContainerId);
         }
         
         if (!container) return;
         
-        // Always apply transformations to ensure consistency
+        // Apply transformations to ensure consistency
         const transformedInput = transformSpecialCharacters(userInput);
         
         try {
-            // Process input using the new advanced algorithm
+            // Process input with advanced algorithm
             const result = processInput(referenceText, transformedInput);
             
-            // Add the raw input text to the result for display purposes
+            // Add the raw input text for display purposes
             result.inputText = transformedInput;
             
-            // Update UI using the display function
+            // Update UI with reference text
             updateInputDisplay(result, container, referenceText);
             
-            // Log for debugging
-            // console.log("Comparison result:", JSON.stringify(result));
-            
-            return {
-                isMatch: result.words.every(w => w.status === 'correct') && 
-                         (!result.extraWords || result.extraWords.length === 0),
-                transformedInput,
-                errorPositions: [],
-                errorCount: result.words.filter(w => w.status !== 'correct').length + 
-                            (result.extraWords ? result.extraWords.length : 0),
-                correctWords: result.words.filter(w => w.status === 'correct').length,
-                totalWords: result.words.length
-            };
-        } catch (advancedError) {
-            console.error("Text comparison error:", advancedError);
-            return { isMatch: false, errorPositions: [] };
+            return result;
+        } catch (error) {
+            console.error("Error processing input:", error);
+            return { isMatch: false };
         }
     } catch (error) {
         console.error("Error in updateHighlighting:", error);
-        return { isMatch: false, errorPositions: [] };
+        return { isMatch: false };
     }
 }
 
 /**
- * Handle the submit action
+ * Handle segment ended event
+ * @param {Object} event - Segment end event
  */
-function handleSubmit() {
+export function handleSegmentEnded(event) {
     try {
-        const currentSegment = getCurrentSegment();
-        const inputField = document.getElementById(config.inputFieldId);
+        segmentEnded = true;
         
-        if (currentSegment && inputField) {
-            console.log(`Handling submit for segment ${currentSegment.index + 1}, isLast: ${currentSegment.isLast}`);
-            
-            // Always apply transformations before submitting
-            const rawInput = inputField.value || "";
-            let transformedInput = rawInput;
-            
-            try {
-                transformedInput = transformSpecialCharacters(rawInput);
-                
-                // Update the field with the fully transformed text
-                if (transformedInput !== rawInput) {
-                    inputField.value = transformedInput;
-                }
-            } catch (transformError) {
-                try { console.error("Error transforming input on submit:", transformError); } catch (e) { /* Silence console errors */ }
-            }
-            
-            try {
-                // Save the transformed input
-                saveUserInput(currentSegment.index, transformedInput);
-            } catch (saveError) {
-                try { console.error("Error saving user input on submit:", saveError); } catch (e) { /* Silence console errors */ }
-            }
-            
-            try {
-                // Compare texts for accuracy and determine if correct
-                const comparison = compareTexts(transformedInput, currentSegment.cue.text);
-                
-                // Include comparison results in the event and flag if this is the last segment
-                const submitEvent = new CustomEvent('inputSubmitted', {
-                    detail: { 
-                        index: currentSegment.index,
-                        text: transformedInput,
-                        rawText: rawInput,
-                        transformedText: comparison.transformedInput,
-                        isCorrect: comparison.isMatch,
-                        errorPositions: comparison.errorPositions,
-                        referenceText: currentSegment.cue.text,
-                        isLastSegment: currentSegment.isLast
-                    }
-                });
-                
-                document.dispatchEvent(submitEvent);
-                
-                // If this is the last segment, also trigger the showResults event directly
-                if (currentSegment.isLast) {
-                    console.log('Last segment submitted, dispatching showResults event');
-                    setTimeout(() => {
-                        document.dispatchEvent(new CustomEvent('showResults'));
-                    }, 500);
-                }
-            } catch (comparisonError) {
-                try { console.error("Error comparing texts on submit:", comparisonError); } catch (e) { /* Silence console errors */ }
-            }
-            
-            // Hide input field after submission
-            hideInputField();
-        }
-    } catch (error) {
-        try { console.error("Error in handleSubmit:", error); } catch (e) { /* Silence console errors */ }
-    }
-}
-
-/**
- * Show the input field
- */
-export function showInputField() {
-    try {
-        const inputContainer = document.getElementById(config.inputContainerId);
-        if (inputContainer) {
-            inputContainer.style.display = 'block';
-        }
-    } catch (error) {
-        try { console.error("Error showing input field:", error); } catch (e) { /* Silence console errors */ }
-    }
-}
-
-/**
- * Hide the input field
- */
-export function hideInputField() {
-    try {
-        const inputContainer = document.getElementById(config.inputContainerId);
-        if (inputContainer) {
-            inputContainer.style.display = 'none';
-        }
-    } catch (error) {
-        try { console.error("Error hiding input field:", error); } catch (e) { /* Silence console errors */ }
-    }
-}
-
-/**
- * Set focus to the input field
- */
-export function setFocus() {
-    try {
-        const inputField = document.getElementById(config.inputFieldId);
+        // Notify the text comparison system about segment change
+        notifySegmentChange();
+        
         if (inputField) {
-            setTimeout(() => {
-                try {
-                    inputField.focus();
-                } catch (focusError) {
-                    try { console.warn("Could not focus input field:", focusError); } catch (e) { /* Silence console errors */ }
-                }
-            }, config.autoFocusDelay); // Small delay to ensure DOM is ready
+            inputField.focus();
+        }
+        
+        // Re-run highlighting to check for auto-advance
+        if (inputField && inputField.value) {
+            handleInputEvent({ target: inputField });
         }
     } catch (error) {
-        try { console.error("Error in setFocus:", error); } catch (e) { /* Silence console errors */ }
+        console.error("Error in handleSegmentEnded:", error);
     }
 }
 
 /**
- * Get the current value in the input field
- * @returns {string} - The current input value
+ * Handle segment started event
+ * @param {Object} event - Segment start event
  */
-export function getCurrentInputValue() {
+export function handleSegmentStarted(event) {
     try {
-        const inputField = document.getElementById(config.inputFieldId);
-        return inputField ? inputField.value : '';
-    } catch (error) {
-        try { console.error("Error getting input value:", error); } catch (e) { /* Silence console errors */ }
-        return '';
-    }
-}
-
-/**
- * Clear the input field
- */
-export function clearInput() {
-    try {
-        const inputField = document.getElementById(config.inputFieldId);
+        segmentEnded = false;
+        clearTimeout(currentInputTimer);
+        
+        // Load any existing input for this segment
+        const segmentIndex = event.segmentIndex || 0;
+        loadExistingInput(segmentIndex);
+        
+        // Give focus to input field
         if (inputField) {
-            inputField.value = '';
-            inputField.classList.remove('has-content');
+            inputField.focus();
         }
     } catch (error) {
-        try { console.error("Error clearing input:", error); } catch (e) { /* Silence console errors */ }
+        console.error("Error in handleSegmentStarted:", error);
     }
 }
 
 /**
- * Calculate the new cursor position after text transformation
- * @param {string} oldText - Text before transformation
- * @param {string} newText - Text after transformation
- * @param {number} oldPosition - Original cursor position
- * @returns {number} - New cursor position
+ * Load existing user input for a segment
+ * @param {number} segmentIndex - Index of the segment
  */
-function calculateNewCursorPosition(oldText, newText, oldPosition) {
+function loadExistingInput(segmentIndex) {
     try {
-        // Simple approach: if text before cursor has been transformed, adjust cursor accordingly
-        const beforeCursor = oldText.substring(0, oldPosition);
-        const transformedBeforeCursor = transformSpecialCharacters(beforeCursor);
-        
-        // New position is the length of the transformed text up to the cursor
-        return transformedBeforeCursor.length;
-    } catch (error) {
-        try { console.error("Error calculating cursor position:", error); } catch (e) { /* Silence console errors */ }
-        return newText.length; // Fall back to end of text
-    }
-}
-
-/**
- * Test special character transformations
- * This function can be called from the console to verify transformations
- */
-window.testTransformations = function() {
-    try {
-        const testCases = [
-            'ba:rlin',
-            'shoener',
-            'scho:n',
-            'scho/n',
-            'straBe',
-            'strass',
-            'strase'
-        ];
-        
-        console.log('===== TESTING TRANSFORMATIONS =====');
-        testCases.forEach(test => {
-            try {
-                const result = transformSpecialCharacters(test);
-                console.log(`${test} → ${result}`);
-            } catch (testError) {
-                console.error(`Test failed for "${test}":`, testError);
+        if (inputField) {
+            const savedInput = getUserInput(segmentIndex);
+            
+            if (savedInput) {
+                inputField.value = savedInput;
+                inputField.classList.add('has-content');
+                
+                // Update highlighting with saved input
+                const segment = getCurrentSegment();
+                if (segment) {
+                    updateHighlighting(savedInput, segment.text, highlightContainer);
+                }
+            } else {
+                inputField.value = '';
+                inputField.classList.remove('has-content');
             }
-        });
-        console.log('=================================');
+        }
     } catch (error) {
-        console.error("Error in test transformations:", error);
+        console.error("Error in loadExistingInput:", error);
     }
-};
+}
+
+/**
+ * Clear input for current segment
+ */
+export function clearCurrentInput() {
+    if (inputField) {
+        inputField.value = '';
+        inputField.classList.remove('has-content');
+        
+        // Clear the highlighting
+        const segment = getCurrentSegment();
+        if (segment && highlightContainer) {
+            updateHighlighting('', segment.text, highlightContainer);
+        }
+        
+        // Save the cleared state
+        const currentIndex = segment ? segment.index : 0;
+        saveUserInput(currentIndex, '');
+        
+        // Focus back on input field
+        inputField.focus();
+    }
+}

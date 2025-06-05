@@ -119,6 +119,15 @@ export function playCurrentSegment(audio) {
         
         segmentState.isPlaying = true;
         
+        // Dispatch segment started event
+        const startEvent = new CustomEvent('segmentStarted', {
+            detail: { 
+                index: segmentState.currentIndex,
+                cue: segmentState.cues[segmentState.currentIndex]
+            }
+        });
+        document.dispatchEvent(startEvent);
+        
     } catch (error) {
         console.error(`Failed to seek to ${currentCue.startTime} for segment ${segmentState.currentIndex + 1}:`, error);
         isCurrentlyPlaying = false;

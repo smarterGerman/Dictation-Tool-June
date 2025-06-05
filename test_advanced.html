@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Text Comparison Test</title>
+    <link rel="stylesheet" href="css/text-comparison.css">
+    <link rel="stylesheet" href="css/text-comparison-advanced.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-container {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .reference {
+            font-style: italic;
+            color: #777;
+            margin-bottom: 10px;
+        }
+        h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Advanced Text Comparison Test</h1>
+    <p>This page allows you to test the new advanced text comparison algorithm.</p>
+
+    <div class="test-container">
+        <h3>Test 1: Basic Matching</h3>
+        <div class="reference">Reference: "Es gibt viel zu tun"</div>
+        <input type="text" id="test1-input" class="test-input" value="Es gibt veil zu tun">
+        <button onclick="runTest('test1')">Compare</button>
+        <div id="test1-result" class="highlight-container"></div>
+    </div>
+
+    <div class="test-container">
+        <h3>Test 2: Out-of-order Words</h3>
+        <div class="reference">Reference: "Die Sonne scheint heute hell"</div>
+        <input type="text" id="test2-input" class="test-input" value="heute scheint die Sonne hel">
+        <button onclick="runTest('test2')">Compare</button>
+        <div id="test2-result" class="highlight-container"></div>
+    </div>
+
+    <div class="test-container">
+        <h3>Test 3: Missing & Extra Words</h3>
+        <div class="reference">Reference: "Das Auto fährt schnell auf der Autobahn"</div>
+        <input type="text" id="test3-input" class="test-input" value="Das Auto fährt sehr schnell auf Autobahn und ist rot">
+        <button onclick="runTest('test3')">Compare</button>
+        <div id="test3-result" class="highlight-container"></div>
+    </div>
+
+    <script type="module">
+        import { processInput } from './js/modules/textComparison/index.js';
+        import { updateInputDisplay } from './js/modules/uiManager.js';
+
+        // Make functions available globally
+        window.processInput = processInput;
+        window.updateInputDisplay = updateInputDisplay;
+        
+        // Test function
+        window.runTest = function(testId) {
+            const inputElement = document.getElementById(`${testId}-input`);
+            const resultElement = document.getElementById(`${testId}-result`);
+            
+            let referenceText = "";
+            
+            // Get reference text based on test ID
+            switch(testId) {
+                case 'test1': referenceText = "Es gibt viel zu tun"; break;
+                case 'test2': referenceText = "Die Sonne scheint heute hell"; break;
+                case 'test3': referenceText = "Das Auto fährt schnell auf der Autobahn"; break;
+                default: referenceText = "";
+            }
+            
+            try {
+                // Process the input against reference text
+                const result = processInput(referenceText, inputElement.value);
+                
+                // Display the result
+                updateInputDisplay(result, resultElement);
+                
+                // Log for debugging
+                console.log(`Test ${testId} result:`, result);
+            } catch (error) {
+                resultElement.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                console.error(`Test ${testId} error:`, error);
+            }
+        };
+    </script>
+</body>
+</html>

@@ -191,3 +191,31 @@ export function createSegmentMarkers(cues, totalDuration) {
     
     console.log('Segment markers created');
 }
+
+/**
+ * Update the progress bar width
+ * @param {number} currentTime - Current playback time in seconds
+ * @param {number} duration - Total duration of the audio in seconds
+ */
+function updateProgressBar(currentTime, duration) {
+    try {
+        const progressBarElement = document.querySelector('.progress-bar-fill') || 
+                                   document.getElementById('progress-bar');
+        
+        // Check if the progress bar element exists
+        if (!progressBarElement) {
+            // Only log warning once to avoid console spam
+            if (!window._progressBarWarningShown) {
+                console.warn('Progress bar element not found. Make sure the element with class "progress-bar-fill" or ID "progress-bar" exists in the HTML.');
+                window._progressBarWarningShown = true;
+            }
+            return;
+        }
+        
+        // Calculate progress percentage
+        const progress = (currentTime / duration) * 100;
+        progressBarElement.style.width = `${progress}%`;
+    } catch (error) {
+        console.error('Error updating progress bar:', error);
+    }
+}

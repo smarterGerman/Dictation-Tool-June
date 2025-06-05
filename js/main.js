@@ -5,7 +5,7 @@ import { defaultAudio, defaultVTT } from './modules/config.js';
 import { parseVTT } from './modules/vttParser.js';
 import { initSegmentManager } from './modules/segmentManager.js';
 import { initInputManager } from './modules/inputManager.js';
-import { initUserDataStore } from './modules/userDataStore.js';
+import { initUserDataStore, clearAllInputs, saveUserInput, getUserInput, getAllUserInputs } from './modules/userDataStore.js';
 import { initResultsScreen } from './modules/resultsScreen.js';
 import { notifySegmentChange } from './modules/textComparison.js';
 
@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             completedSegments = new Set();
             
             // Clear user inputs
-            userDataStore.clearAllInputs();
+            clearAllInputs();
             
             // Go back to first segment
             const firstSegmentIndex = 0;

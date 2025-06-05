@@ -1,79 +1,46 @@
 /**
- * Text Comparison Module
- * Main export file for text comparison functionality
- * Combines the proven algorithms from old system with modular structure
+ * Main exports file for text comparison system
+ * Centralizes all exports from the modular components
  */
-import { 
-  findBestWordMatches, 
-  alignTexts, 
-  isTextMatch, 
-  generateHighlightedHTML 
-} from './wordMatcher.js';
 
-import { 
-  calculateSimilarityScore, 
-  calculateOverallSimilarity, 
-  levenshteinDistance 
-} from './similarityScoring.js';
+import { findBestWordMatches, generateHighlightedHTML } from './wordMatcher.js';
+import { calculateSimilarityScore, levenshteinDistance } from './similarityScoring.js';
+import { normalizeText, normalizeWord, transformSpecialCharacters, notifySegmentChange, getTimeSinceSegmentChange } from './textNormalizer.js';
+import { processInput } from './inputProcessor.js';
 
-import { 
-  normalizeText, 
-  normalizeWord, 
-  transformSpecialCharacters, 
-  notifySegmentChange,
-  getTimeSinceSegmentChange
-} from './textNormalizer.js';
-
-import { 
-  processInput, 
-  notifySegmentAdvance 
-} from './inputProcessor.js';
-
-/**
- * Compare user input with reference text
- * Legacy entry point for the text comparison system
- * 
- * @param {string} userInput - The user's transcribed text
- * @param {string} referenceText - The correct reference text
- * @returns {Object} - Comparison results with match status
- */
-export function compareTexts(userInput, referenceText) {
-  // This is a compatibility wrapper that uses the new processInput function
-  // but returns a result object with the same structure as the old system
-  const result = processInput(referenceText, userInput);
+// Function to generate HTML for results (needed by resultsScreen.js)
+export function generateResultHTML(input, referenceText) {
+  // Use the existing comparison system to generate HTML for results
+  const result = processInput(referenceText, input);
   
-  return {
-    isMatch: result.isMatch,
-    transformedInput: result.transformedInput,
-    errorPositions: result.errorPositions,
-    errorCount: result.errorCount,
-    correctWords: result.correctWords,
-    totalWords: result.totalWords,
-    highlightedHtml: result.highlightedHtml
-  };
+  // Create highlighted HTML based on the comparison result
+  let html = '';
+  
+  if (result && result.words) {
+    result.words.forEach(word => {
+      if (word.status === 'correct') {
+        html += `<span class="correct">${word.expected}</span> `;
+      } else if (word.status === 'misspelled') {
+        html += `<span class="incorrect" title="You typed: ${word.word || ''}">${word.expected}</span> `;
+      } else if (word.status === 'missing') {
+        html += `<span class="missing">${word.expected}</span> `;
+      }
+    });
+  }
+  
+  return html.trim();
 }
 
-// Export all functions for use by other modules
+// Export all the functions
 export {
-  // Word matching
   findBestWordMatches,
-  alignTexts,
-  isTextMatch,
   generateHighlightedHTML,
-  
-  // Similarity scoring
-  calculateSimilarityScore,
-  calculateOverallSimilarity,
+  calculateSimilarityScore, 
   levenshteinDistance,
-  
-  // Text normalization
   normalizeText,
   normalizeWord,
   transformSpecialCharacters,
   notifySegmentChange,
   getTimeSinceSegmentChange,
-  
-  // Input processing
-  processInput,
-  notifySegmentAdvance
+  processInput
 };

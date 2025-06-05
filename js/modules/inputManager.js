@@ -1,11 +1,16 @@
 /**
  * Module for managing user input fields and focus
+ * Integrates with the updated text comparison system
  */
 import { config, textComparisonConfig } from './config.js';
 import { getCurrentSegment, getAllSegments } from './segmentManager.js';
 import { saveUserInput, getUserInput } from './userDataStore.js';
-import { compareTexts, generateHighlightedHTML, transformSpecialCharacters } from './textComparison.js';
-import { processInput } from './textComparison/index.js';
+import { 
+  transformSpecialCharacters, 
+  notifySegmentChange, 
+  processInput, 
+  compareTexts 
+} from './textComparison.js';
 import { updateInputDisplay } from './uiManager.js';
 import { debounce } from '../utils/performance.js';
 
@@ -282,6 +287,14 @@ function handleSegmentEnded(e) {
         const { index, cue, isLastSegment } = e.detail;
         
         console.log(`Segment ${index + 1} ended, isLastSegment: ${isLastSegment}`);
+        
+        // Notify the text comparison system about the segment change
+        // This prevents unwanted auto-advancement too soon
+        try {
+            notifySegmentChange();
+        } catch (notifyError) {
+            console.warn("Failed to notify segment change:", notifyError);
+        }
         
         // If this is the last segment, check if we should show results instead
         // if (isLastSegment) {

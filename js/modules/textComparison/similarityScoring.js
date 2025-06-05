@@ -1,6 +1,7 @@
 /**
  * Similarity Scoring Module
  * Provides functions to calculate word similarity for matching purposes
+ * Using the proven algorithms from the old system
  */
 
 import { normalizeWord } from './textNormalizer.js';
@@ -30,6 +31,24 @@ export function calculateSimilarityScore(expected, actual) {
   const normalizedActual = normalizeWord(actual);
   if (normalizedExpected === normalizedActual) return 0.95;
   
+  // Case-insensitive match
+  if (expected.toLowerCase() === actual.toLowerCase()) return 0.95;
+  
+  // Substring match (one is contained in the other)
+  const lowerExpected = expected.toLowerCase();
+  const lowerActual = actual.toLowerCase();
+    
+  if (lowerExpected.includes(lowerActual) || lowerActual.includes(lowerExpected)) {
+    const ratio = Math.min(lowerExpected.length, lowerActual.length) / 
+                  Math.max(lowerExpected.length, lowerActual.length);
+    const substringScore = Math.max(0.5, ratio * 0.9); // At least 0.5 for substring match
+    
+    // If one is clearly contained in the other with a good length ratio, use this score
+    if (substringScore > 0.7) {
+      return substringScore;
+    }
+  }
+  
   // Calculate Levenshtein distance
   const distance = levenshteinDistance(normalizedExpected, normalizedActual);
   const maxLength = Math.max(normalizedExpected.length, normalizedActual.length);
@@ -37,7 +56,7 @@ export function calculateSimilarityScore(expected, actual) {
   // Convert distance to similarity score
   const similarityFromLevenshtein = 1 - (distance / maxLength);
   
-  // Check for substring match (compound words)
+  // Check for additional substring match (compound words)
   let substringScore = 0;
   if (normalizedExpected.includes(normalizedActual)) {
     substringScore = normalizedActual.length / normalizedExpected.length * 0.8;
@@ -45,8 +64,9 @@ export function calculateSimilarityScore(expected, actual) {
     substringScore = normalizedExpected.length / normalizedActual.length * 0.8;
   }
   
-  // Return the best score
-  return Math.max(similarityFromLevenshtein, substringScore);
+  // Apply the proven minimum threshold from the old system
+  const bestScore = Math.max(similarityFromLevenshtein, substringScore);
+  return bestScore > textComparisonConfig.minimumMatchThreshold ? bestScore : 0;
 }
 
 /**
@@ -75,6 +95,7 @@ export function calculateOverallSimilarity(a, b) {
  * @return {number} - Edit distance (lower means more similar)
  */
 export function levenshteinDistance(str1, str2) {
+  // Empty strings check
   if (!str1 && !str2) return 0;
   if (!str1) return str2.length;
   if (!str2) return str1.length;

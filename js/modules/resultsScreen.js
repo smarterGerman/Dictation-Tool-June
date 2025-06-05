@@ -1,12 +1,15 @@
 /**
  * Module for creating and managing the results screen
+ * Integrates with the enhanced text comparison system
  */
 import { config } from './config.js';
 import { getAllSegments } from './segmentManager.js';
 import { getAllUserInputs } from './userDataStore.js';
-import { compareTexts } from './textComparison.js';
-import { processInput } from './textComparison/index.js';
-import { calculateStats, updateInputDisplay } from './uiManager.js';
+import { 
+  generateResultHTML,
+  processInput 
+} from './textComparison/index.js'; 
+import { calculateStats, updateInputDisplay, isCompleteMatch, generateResultHTML as generateHTML } from './uiManager.js';
 
 // Store timing information for statistics
 let exerciseStartTime = null;
@@ -132,7 +135,8 @@ function calculateStatistics(segments, userInputs) {
                 console.error("Advanced comparison failed for segment", index, e);
                 
                 // Fall back to legacy comparison system
-                const comparison = compareTexts(userInput, referenceText);
+                // Use the enhanced text comparison system
+                const comparison = processInput(referenceText, userInput);
                 
                 // Count characters
                 totalChars += referenceText.length;
@@ -260,7 +264,8 @@ function generateResultsHTML(stats, segments, userInputs) {
             console.error("Advanced comparison failed for segment in results:", index, e);
             
             // Fall back to legacy comparison
-            const comparison = compareTexts(userInput, segment.text);
+            // Use the enhanced text comparison system
+            const comparison = processInput(segment.text, userInput);
             
             // Only show segments with errors
             if (comparison.errorPositions.length > 0) {

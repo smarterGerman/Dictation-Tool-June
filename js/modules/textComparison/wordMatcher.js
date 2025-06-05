@@ -1,197 +1,124 @@
 /**
- * Word Matcher Module
- * Core algorithm for aligning words from user input with reference text
+ * Word alignment module
+ * Implements advanced word matching algorithm for better accuracy
+ * Based on the proven algorithms from the old system
  */
+
 import { calculateSimilarityScore } from './similarityScoring.js';
-import { textComparisonConfig } from '../config.js';
-import { getTimeSinceSegmentChange } from './textNormalizer.js';
+import { normalizeWord } from './textNormalizer.js';
 
 /**
  * Finds the best matches between expected words and actual user input
- * Handles out-of-order typing, misspellings, missing and extra words
- * 
+ * Handles out-of-order typing, misspellings, missing words, and extra words
  * @param {string[]} expectedWords - Array of words from the reference text
  * @param {string[]} actualWords - Array of words from user input
- * @param {number} matchThreshold - Minimum score to consider a match (0-1)
  * @return {Object[]} - Array of match objects with alignment information
  */
-export function findBestWordMatches(
-  expectedWords = [], 
-  actualWords = [], 
-  matchThreshold = textComparisonConfig.minimumMatchThreshold
-) {
-  // Input validation
-  if (!Array.isArray(expectedWords)) expectedWords = [];
-  if (!Array.isArray(actualWords)) actualWords = [];
-  
-  // Ensure we have valid match threshold
-  if (typeof matchThreshold !== 'number' || matchThreshold < 0 || matchThreshold > 1) {
-    matchThreshold = textComparisonConfig.minimumMatchThreshold;
+export function findBestWordMatches(expectedWords, actualWords) {
+  if (!expectedWords || !expectedWords.length) return [];
+  if (!actualWords || !actualWords.length) {
+    // Return all expected words as missing
+    return expectedWords.map(word => ({
+      expected: word,
+      word: null,
+      status: 'missing',
+      similarity: 0
+    }));
   }
   
-  const result = [];
-  let remainingActualWords = [...actualWords]; // Copy to track unmatched words
+  // Create normalized versions of words for comparison
+  const normalizedExpected = expectedWords.map(w => normalizeWord(w));
+  const normalizedActual = actualWords.map(w => normalizeWord(w));
   
-  // For each expected word in the reference text
-  for (let i = 0; i < expectedWords.length; i++) {
-    const expectedWord = expectedWords[i];
-    const expectedWordLower = textComparisonConfig.caseSensitive ? expectedWord : expectedWord.toLowerCase();
-    let bestMatch = null;
-    let bestScore = matchThreshold; // Minimum threshold to consider a match
-    
-    // Try to find the best matching word from user input
-    for (let j = 0; j < remainingActualWords.length; j++) {
-      const actualWord = remainingActualWords[j];
-      const actualWordLower = textComparisonConfig.caseSensitive ? actualWord : actualWord.toLowerCase();
-      const score = calculateSimilarityScore(expectedWordLower, actualWordLower);
+  // Track which words have been matched
+  const matchedExpected = new Array(expectedWords.length).fill(false);
+  const matchedActual = new Array(actualWords.length).fill(false);
+  
+  // Results array
+  const results = new Array(expectedWords.length);
+  
+  // First pass: find exact and close matches
+  for (let i = 0; i < normalizedExpected.length; i++) {
+    for (let j = 0; j < normalizedActual.length; j++) {
+      if (matchedActual[j]) continue; // Skip already matched actual words
       
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = {
-          expectedIndex: i,
-          actualIndex: actualWords.indexOf(remainingActualWords[j]),
-          word: remainingActualWords[j],
-          score: score,
-          expected: expectedWords[i]
+      const similarity = calculateSimilarityScore(normalizedExpected[i], normalizedActual[j]);
+      
+      // If good match (proven threshold of 0.3)
+      if (similarity >= 0.3) {
+        matchedExpected[i] = true;
+        matchedActual[j] = true;
+        
+        // Determine status based on similarity
+        const status = similarity >= 0.95 ? 'correct' : 'misspelled';
+        
+        results[i] = {
+          expected: expectedWords[i],
+          word: actualWords[j],
+          status: status,
+          similarity: similarity
         };
+        
+        break;
       }
     }
     
-    if (bestMatch) {
-      result.push(bestMatch);
-      // Remove the matched word from consideration
-      const matchedWordIndex = remainingActualWords.indexOf(bestMatch.word);
-      remainingActualWords.splice(matchedWordIndex, 1);
-    } else {
-      // No match found for this expected word
-      result.push({
-        expectedIndex: i,
-        actualIndex: -1,
-        word: null,
-        score: 0,
+    // No match found for this expected word
+    if (!matchedExpected[i]) {
+      results[i] = {
         expected: expectedWords[i],
-        missing: true
-      });
+        word: null,
+        status: 'missing', 
+        similarity: 0
+      };
     }
   }
   
-  // Handle extra words that don't match any expected word
-  remainingActualWords.forEach(word => {
-    result.push({
-      expectedIndex: -1,
-      actualIndex: actualWords.indexOf(word),
-      word: word,
-      score: 0,
+  // Collect any unmatched actual words as "extra"
+  const extraWords = actualWords
+    .filter((word, index) => !matchedActual[index])
+    .map(word => ({
       expected: null,
-      extra: true
+      word: word,
+      status: 'extra',
+      similarity: 0
+    }));
+  
+  return {
+    words: results,
+    extraWords: extraWords
+  };
+}
+
+/**
+ * Generate HTML with highlighting based on comparison results
+ * @param {Object} comparisonResult - Result from processInput
+ * @return {string} - HTML with appropriate highlighting
+ */
+export function generateHighlightedHTML(comparisonResult) {
+  if (!comparisonResult || !comparisonResult.words) {
+    return '';
+  }
+  
+  let html = '';
+  comparisonResult.words.forEach(word => {
+    if (word.status === 'correct') {
+      html += `<span class="word-correct">${word.expected}</span> `;
+    } else if (word.status === 'misspelled') {
+      html += `<span class="word-misspelled" title="You typed: ${word.word || ''}">${word.expected}</span> `;
+    } else if (word.status === 'missing') {
+      html += `<span class="word-missing">${word.expected}</span> `;
+    }
+  });
+  
+  // Add extra words if any
+  if (comparisonResult.extraWords && comparisonResult.extraWords.length > 0) {
+    html += '<div class="extra-words">Extra words: ';
+    comparisonResult.extraWords.forEach(extra => {
+      html += `<span class="word-extra">${extra.word}</span> `;
     });
-  });
-  
-  return result;
-}
-
-/**
- * Align two texts for better error highlighting
- * @param {string} input - User input
- * @param {string} reference - Reference text
- * @returns {Array} - Array of characters with status (correct, error, missing)
- */
-export function alignTexts(input, reference) {
-  // Simple character-by-character comparison for now
-  const inputChars = input.split('');
-  const referenceChars = reference.split('');
-  const result = [];
-  
-  // Compare existing characters
-  for (let i = 0; i < inputChars.length; i++) {
-    if (i < referenceChars.length) {
-      if (inputChars[i] === referenceChars[i]) {
-        result.push({ char: inputChars[i], status: 'correct' });
-      } else {
-        result.push({ char: inputChars[i], status: 'error' });
-      }
-    } else {
-      // Extra character in input
-      result.push({ char: inputChars[i], status: 'error' });
-    }
+    html += '</div>';
   }
   
-  // Add placeholders for missing characters
-  for (let i = inputChars.length; i < referenceChars.length; i++) {
-    result.push({ char: ' ', status: 'missing' });
-  }
-  
-  return result;
-}
-
-/**
- * Determines if user input is a match for the reference text
- * Accounts for similarity threshold and recent segment changes
- * 
- * @param {Array} matches - Word match results from findBestWordMatches
- * @param {number} totalExpectedWords - Total words in reference text
- * @param {number} totalActualWords - Total words in user input
- * @returns {boolean} - True if input is a match for reference text
- */
-export function isTextMatch(matches, totalExpectedWords, totalActualWords) {
-  // Don't auto-advance if we recently changed segments
-  const recentSegmentChange = (getTimeSinceSegmentChange() < 1500); // 1.5 second safety window
-  
-  // Count correct words
-  const correctWords = matches.filter(match => !match.missing && !match.extra && match.score > 0.7).length;
-  
-  // Check if all words match
-  let isMatch = correctWords === totalExpectedWords && totalActualWords === totalExpectedWords;
-  
-  // If we just changed segments, prevent auto-advancement
-  if (isMatch && recentSegmentChange) {
-    console.log('Skipping auto-advance: too soon since last segment change');
-    isMatch = false; // Prevent auto-advancement
-  }
-  
-  return isMatch;
-}
-
-/**
- * Generate HTML with error highlighting for the user input
- * @param {string} input - The user's input text (or transformed input)
- * @param {Array} errorPositions - Array of error position objects {start, end}
- * @returns {string} - HTML string with highlighted errors
- */
-export function generateHighlightedHTML(input, errorPositions) {
-  if (!input) return '';
-  
-  // If no errors, all text is correct (green)
-  if (!errorPositions || errorPositions.length === 0) {
-    return `<span class="correct">${input}</span>`;
-  }
-  
-  // Build output with highlighting based on error positions
-  let output = '';
-  const chars = input.split('');
-  
-  chars.forEach((char, index) => {
-    // Check if this index is within any error position range
-    let isError = false;
-    for (const pos of errorPositions) {
-      // Handle both array of indices and array of {start, end} objects
-      if (typeof pos === 'number') {
-        isError = pos === index;
-      } else if (pos && typeof pos === 'object') {
-        isError = index >= pos.start && index < pos.end;
-      }
-      
-      if (isError) break;
-    }
-    
-    if (isError) {
-      // Error character (red)
-      output += `<span class="incorrect">${char}</span>`;
-    } else {
-      // Correct character (green)
-      output += `<span class="correct">${char}</span>`;
-    }
-  });
-  
-  return output;
+  return html;
 }

@@ -151,17 +151,23 @@ function handleKeyDown(event) {
  * Update the highlighted text based on comparison results
  * Using advanced word matching algorithm for better accuracy
  * @param {string} userInput - Current user input
- * @param {string} referenceText - Reference text to compare against
- * @param {HTMLElement} container - Container element to update
+ * @param {string} referenceText - Reference text to compare against (optional)
+ * @param {HTMLElement} container - Container element to update (optional)
  * @returns {Object} - Comparison result
  */
 function updateHighlighting(userInput, referenceText, container) {
     try {
+        // If referenceText is not provided, get it from the current segment
+        if (!referenceText) {
+            const segment = getCurrentSegment();
+            referenceText = segment ? segment.text : '';
+        }
+        
         if (!container) {
             container = document.getElementById(config.highlightContainerId);
         }
         
-        if (!container) return;
+        if (!container) return null;
         
         // Apply transformations to ensure consistency
         const transformedInput = transformSpecialCharacters(userInput);
@@ -172,9 +178,6 @@ function updateHighlighting(userInput, referenceText, container) {
             
             // Add the raw input text for display purposes
             result.inputText = transformedInput;
-            
-            // Update UI with reference text - use the textComparisonContainer instead
-            updateInputDisplay(result, currentTextComparisonContainer || container, referenceText);
             
             // Update placeholders based on comparison results
             if (currentPlaceholderContainer) {
@@ -304,22 +307,22 @@ function setupSegmentUI(segmentIndex) {
     // Clear previous content
     highlightContainer.innerHTML = '';
     
-    // Create two separate containers
-    const placeholderSection = document.createElement('div');
-    placeholderSection.classList.add('placeholder-section');
-    
-    const textComparisonSection = document.createElement('div');
-    textComparisonSection.classList.add('text-comparison-section');
-    
     // Generate placeholder container
     const placeholderContainer = generatePlaceholdersForReference(referenceText);
-    placeholderSection.appendChild(placeholderContainer);
+    highlightContainer.appendChild(placeholderContainer);
     
-    // Add both sections to the highlight container
-    highlightContainer.appendChild(placeholderSection);
-    highlightContainer.appendChild(textComparisonSection);
-    
-    // Store references for later updates
+    // Store reference for later updates
     currentPlaceholderContainer = placeholderContainer;
-    currentTextComparisonContainer = textComparisonSection;
+    
+    // Make the placeholder container clickable to focus input
+    highlightContainer.addEventListener('click', () => {
+        if (inputField) {
+            inputField.focus();
+        }
+    });
+    
+    // Focus the input field immediately
+    if (inputField) {
+        inputField.focus();
+    }
 }

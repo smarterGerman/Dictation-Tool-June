@@ -32,12 +32,11 @@
 }
 
 .extra-words-container {
-    margin-top: 5px;
+    margin-top: 10px;
     font-size: 0.9em;
-    color: #7f8c8d;
-    background-color: #f9f9f9;
+    background-color: rgba(155, 89, 182, 0.1);
     padding: 5px;
-    border-radius: 3px;
+    border-radius: 4px;
 }
 
 .reference-placeholders {
@@ -45,7 +44,11 @@
   font-family: monospace;
   font-size: 1.2em;
   letter-spacing: 1px;
-  margin-bottom: 1.5em;
+  margin-bottom: 0; /* Remove bottom margin to bring closer to input area */
+  padding: 15px;
+  background-color: #f8f8f8; /* Match the input container background */
+  border-radius: 8px;
+  line-height: 1.8;
 }
 
 .word-placeholder {
@@ -53,15 +56,29 @@
   margin-right: 10px;
 }
 
+.word-placeholder.word-correct .letter-placeholder {
+  color: #2ecc71; /* Green for correct words */
+}
+
+.word-placeholder.word-misspelled .letter-placeholder {
+  color: #e74c3c; /* Red for misspelled words */
+  text-decoration: underline wavy #e74c3c;
+}
+
 .letter-placeholder {
   display: inline-block;
   margin: 0 2px;
   font-weight: bold;
-  color: #e0e0e0;
+  color: #e0e0e0; /* Light gray for underscores */
+  font-size: 1.2em;
 }
 
 .letter-placeholder.revealed {
   color: #2ecc71; /* Green for correctly revealed letters */
+}
+
+.letter-placeholder.misspelled {
+  color: #e74c3c; /* Red for misspelled letters */
 }
 
 .misspelled-word .letter-placeholder {

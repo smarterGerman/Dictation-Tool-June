@@ -7,6 +7,10 @@
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     display: block; /* Always visible */
+    position: relative;
+    padding-bottom: 20px; /* Space for the fixed-bottom input */
+    cursor: text; /* Show text cursor to indicate typing area */
+    min-height: 100px; /* Maintain height even with hidden input */
 }
 
 .transcription-input {
@@ -20,6 +24,18 @@
     min-height: 100px;
     margin-bottom: 10px;
     transition: border-color 0.3s;
+    position: absolute;
+    opacity: 0;
+    height: 0;
+    z-index: -1; /* Place behind other content */
+}
+
+/* Make the container act as a clickable area to focus the hidden input */
+.input-container {
+  position: relative;
+  padding-bottom: 20px; /* Space for the fixed-bottom input */
+  cursor: text; /* Show text cursor to indicate typing area */
+  min-height: 100px; /* Maintain height even with hidden input */
 }
 
 .transcription-input:focus {

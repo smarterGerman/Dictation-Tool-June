@@ -1,67 +1,105 @@
 /**
  * UI Manager Module
  * Handles UI rendering and updates for text comparison results
+ * Implements the reference-text-only display approach
  */
-import { processInput } from './textComparison/index.js';
+import { processInput, generateHighlightedHTML } from './textComparison/index.js';
 
 /**
- * Updates the UI with comparison results
+ * Updates the UI with comparison results, showing reference text with highlighting
  * @param {Object} comparisonResult - Result from processInput
  * @param {HTMLElement} containerElement - Container for displaying results
+ * @param {string} referenceText - The original reference text to display
  */
-export function updateInputDisplay(comparisonResult, containerElement) {
+export function updateInputDisplay(comparisonResult, containerElement, referenceText) {
   // Clear previous content
   containerElement.innerHTML = '';
   
-  // No results or empty input, don't show anything
+  // No results, just show the reference text without highlighting
   if (!comparisonResult || !comparisonResult.words) {
+    displayReferenceText(containerElement, referenceText);
     return;
   }
   
-  // Get actual user input text to determine what to show
-  const userInput = comparisonResult.inputText || '';
+  // Display reference text with appropriate highlighting based on user input
+  displayHighlightedReference(containerElement, comparisonResult, referenceText);
+}
+
+/**
+ * Display reference text with highlighting based on word matches
+ * @param {HTMLElement} containerElement - Container for display
+ * @param {Object} result - Comparison result object
+ * @param {string} referenceText - Original reference text
+ */
+function displayHighlightedReference(containerElement, result, referenceText) {
+  // If no reference text, don't show anything
+  if (!referenceText) return;
   
-  // If there's no user input, don't show anything
-  if (!userInput.trim()) {
-    return;
-  }
+  const refWords = referenceText.split(/\s+/);
   
-  // Instead of filtering expected words, directly use the user's input text
-  const userWords = userInput.trim().split(/\s+/);
-  
-  // Process each word the user typed
-  userWords.forEach(userWord => {
+  // Process each word in the reference text
+  refWords.forEach((refWord, i) => {
     const wordElement = document.createElement('span');
-    wordElement.textContent = userWord;
+    wordElement.textContent = refWord;
     
-    // Find if this word matches any word in the comparison results
-    const matchedWord = comparisonResult.words.find(w => 
-      w.word === userWord || // Exact match
-      (w.word && w.word.toLowerCase() === userWord.toLowerCase()) // Case-insensitive match
-    );
+    // Find matching information for this reference word
+    const matchInfo = result.words && result.words[i];
     
-    // Apply appropriate class based on match status
-    if (matchedWord && matchedWord.status === 'correct') {
-      wordElement.classList.add('word-correct');
-    } else if (matchedWord && matchedWord.status === 'misspelled') {
-      wordElement.classList.add('word-misspelled');
-      wordElement.setAttribute('title', `Expected: ${matchedWord.expected}`);
-    } else {
-      // Word didn't match any expected word, might be extra
-      const extraMatch = comparisonResult.extraWords && 
-        comparisonResult.extraWords.find(e => e.word === userWord);
-      
-      if (extraMatch) {
-        wordElement.classList.add('word-extra');
-      } else {
-        // Unclassified word - could be waiting for more matches
-        wordElement.classList.add('word-unverified');
+    if (matchInfo) {
+      // Apply appropriate class based on match status
+      if (matchInfo.status === 'correct') {
+        wordElement.classList.add('ref-word-correct');
+      } else if (matchInfo.status === 'misspelled') {
+        wordElement.classList.add('ref-word-misspelled');
+        if (matchInfo.word) {
+          wordElement.setAttribute('title', `User typed: ${matchInfo.word}`);
+        }
+      } else if (matchInfo.status === 'missing') {
+        wordElement.classList.add('ref-word-missing');
       }
+    } else {
+      // Default unmatched style
+      wordElement.classList.add('ref-word-unmatched');
     }
     
     containerElement.appendChild(wordElement);
     containerElement.appendChild(document.createTextNode(' '));
   });
+  
+  // Show any extra words the user typed at the end
+  if (result.extraWords && result.extraWords.length > 0) {
+    const extraContainer = document.createElement('div');
+    extraContainer.classList.add('extra-words-container');
+    
+    const extraLabel = document.createElement('span');
+    extraLabel.textContent = 'Extra words: ';
+    extraLabel.classList.add('extra-words-label');
+    extraContainer.appendChild(extraLabel);
+    
+    result.extraWords.forEach(extra => {
+      const extraWord = document.createElement('span');
+      extraWord.textContent = extra.word;
+      extraWord.classList.add('extra-word');
+      extraContainer.appendChild(extraWord);
+      extraContainer.appendChild(document.createTextNode(' '));
+    });
+    
+    containerElement.appendChild(extraContainer);
+  }
+}
+
+/**
+ * Display plain reference text (when no user input)
+ * @param {HTMLElement} containerElement - Container for display
+ * @param {string} referenceText - Text to display
+ */
+function displayReferenceText(containerElement, referenceText) {
+  if (!referenceText) return;
+  
+  const refElement = document.createElement('div');
+  refElement.classList.add('reference-text');
+  refElement.textContent = referenceText;
+  containerElement.appendChild(refElement);
 }
 
 /**
@@ -99,4 +137,69 @@ export function calculateStats(segmentResults) {
     extraWords,
     accuracy: totalWords > 0 ? (correctWords / totalWords * 100).toFixed(1) : 0
   };
+}
+
+/**
+ * Determine if the user input is a complete match for the reference text
+ * @param {Object} comparisonResult - Result from processInput
+ * @return {boolean} - True if the input is a complete match
+ */
+export function isCompleteMatch(comparisonResult) {
+  if (!comparisonResult || !comparisonResult.isMatch) {
+    return false;
+  }
+  return comparisonResult.isMatch === true;
+}
+
+/**
+ * Generate HTML representation of text comparison results for display
+ * This can be injected directly into the container for rich formatting
+ * @param {Object} comparisonResult - Result from processInput
+ * @param {string} referenceText - The original reference text
+ * @return {string} - HTML string with appropriate highlighting
+ */
+export function generateResultHTML(comparisonResult, referenceText) {
+  // If we have a pre-generated HTML result, use it
+  if (comparisonResult && comparisonResult.highlightedHtml) {
+    return comparisonResult.highlightedHtml;
+  }
+  
+  // No comparison results, just return the reference text wrapped
+  if (!comparisonResult || !comparisonResult.words) {
+    return `<div class="reference-text">${referenceText || ''}</div>`;
+  }
+  
+  let html = '';
+  const refWords = referenceText.split(/\s+/);
+  
+  // Build HTML for each word in the reference text
+  refWords.forEach((refWord, i) => {
+    const matchInfo = comparisonResult.words && comparisonResult.words[i];
+    let wordClass = 'ref-word-unmatched';
+    let titleAttr = '';
+    
+    if (matchInfo) {
+      if (matchInfo.status === 'correct') {
+        wordClass = 'ref-word-correct';
+      } else if (matchInfo.status === 'misspelled') {
+        wordClass = 'ref-word-misspelled';
+        titleAttr = matchInfo.word ? ` title="User typed: ${matchInfo.word}"` : '';
+      } else if (matchInfo.status === 'missing') {
+        wordClass = 'ref-word-missing';
+      }
+    }
+    
+    html += `<span class="${wordClass}"${titleAttr}>${refWord}</span> `;
+  });
+  
+  // Add extra words if any
+  if (comparisonResult.extraWords && comparisonResult.extraWords.length > 0) {
+    html += '<div class="extra-words-container"><span class="extra-words-label">Extra words: </span>';
+    comparisonResult.extraWords.forEach(extra => {
+      html += `<span class="extra-word">${extra.word}</span> `;
+    });
+    html += '</div>';
+  }
+  
+  return html;
 }

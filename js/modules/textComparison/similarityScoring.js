@@ -4,6 +4,7 @@
  */
 
 import { normalizeWord } from './textNormalizer.js';
+import { textComparisonConfig } from '../config.js';
 
 /**
  * Calculates similarity between two words using multiple techniques:
@@ -17,6 +18,10 @@ import { normalizeWord } from './textNormalizer.js';
  * @return {number} - Score between 0 and 1, higher means more similar
  */
 export function calculateSimilarityScore(expected, actual) {
+  // Input validation
+  if (!expected && !actual) return 1.0;
+  if (!expected || !actual) return 0.0;
+  
   // Exact match
   if (expected === actual) return 1.0;
   
@@ -45,6 +50,22 @@ export function calculateSimilarityScore(expected, actual) {
 }
 
 /**
+ * Calculates the overall text similarity using Levenshtein distance
+ * @param {string} a - First string
+ * @param {string} b - Second string
+ * @returns {number} - Similarity percentage (0-100)
+ */
+export function calculateOverallSimilarity(a, b) {
+  if (!a && !b) return 100;
+  if (!a || !b) return 0;
+  
+  const distance = levenshteinDistance(a, b);
+  const maxLength = Math.max(a.length, b.length);
+  
+  return Math.round(((maxLength - distance) / maxLength) * 100);
+}
+
+/**
  * Calculates Levenshtein distance between two strings
  * This measures the minimum number of single-character edits
  * needed to change one string into another
@@ -54,23 +75,32 @@ export function calculateSimilarityScore(expected, actual) {
  * @return {number} - Edit distance (lower means more similar)
  */
 export function levenshteinDistance(str1, str2) {
-  const m = str1.length;
-  const n = str2.length;
-  const dp = Array(m + 1).fill().map(() => Array(n + 1).fill(0));
+  if (!str1 && !str2) return 0;
+  if (!str1) return str2.length;
+  if (!str2) return str1.length;
   
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  const matrix = [];
   
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const cost = str1[i-1] === str2[j-1] ? 0 : 1;
-      dp[i][j] = Math.min(
-        dp[i-1][j] + 1,      // deletion
-        dp[i][j-1] + 1,      // insertion
-        dp[i-1][j-1] + cost  // substitution
+  // Initialize matrix
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  // Fill matrix
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      const cost = str2.charAt(i - 1) === str1.charAt(j - 1) ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i-1][j] + 1,      // deletion
+        matrix[i][j-1] + 1,      // insertion
+        matrix[i-1][j-1] + cost  // substitution
       );
     }
   }
   
-  return dp[m][n];
+  return matrix[str2.length][str1.length];
 }

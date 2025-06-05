@@ -1,60 +1,30 @@
 /**
  * Module for comparing transcribed text with reference text
- * Includes German special character transformations and real-time error highlighting
+ * Legacy module that now imports from the new modular system
  */
 
-// Add protection against auto-advancement too soon after segment change
-let lastSegmentAdvanceTime = 0;
+// Import all functions from the new modular system
+import {
+    transformSpecialCharacters,
+    notifySegmentChange,
+    processInput,
+    normalizeText,
+    calculateSimilarityScore,
+    levenshteinDistance,
+    generateHighlightedHTML,
+    getTimeSinceSegmentChange  // Add this import
+} from './textComparison/index.js';
 
-/**
- * Notify the text comparison system about a segment change
- * Called when segments are advanced to prevent unwanted auto-advancement
- */
-export function notifySegmentChange() {
-    lastSegmentAdvanceTime = Date.now();
-}
-
-/**
- * Transform input text to normalize German special characters
- * @param {string} input - The user input text
- * @returns {string} - Normalized text with transformed special characters
- */
-export function transformSpecialCharacters(input) {
-    if (!input) return '';
-    
-    try {
-        // Try-catch to handle any unexpected errors in the transformation process
-        let result = input;
-        
-        // Apply transformations in a specific order for best results
-        // 1. First transform letter+e patterns
-        result = transformLetterE(result);
-        
-        // 2. Then transform colon patterns
-        result = transformColon(result);
-        
-        // 3. Then transform slash patterns
-        result = transformSlash(result);
-        
-        // 4. Finally transform eszett
-        result = transformEszett(result);
-        
-        // Safer logging without stringification that might cause issues in some browsers
-        if (result !== input && typeof console !== 'undefined') {
-            try {
-                console.log("Transformation applied:", input, "→", result);
-            } catch (logError) {
-                // Silently fail if logging causes issues
-            }
-        }
-        
-        return result;
-    } catch (err) {
-        // Fallback in case of any error - return original input
-        console.error("Error in transformation:", err);
-        return input;
-    }
-}
+// Re-export the functions for backward compatibility
+export {
+    transformSpecialCharacters,
+    notifySegmentChange,
+    processInput,
+    normalizeText,
+    calculateSimilarityScore,
+    levenshteinDistance,
+    generateHighlightedHTML
+};
 
 /**
  * Transform letter+e notation to umlauts (ae → ä, oe → ö, ue → ü)
@@ -163,8 +133,7 @@ export function compareTexts(userInput, referenceText) {
     }
     
     // Don't auto-advance if we recently changed segments
-    const now = Date.now();
-    const recentSegmentChange = (now - lastSegmentAdvanceTime < 1500); // 1.5 second safety window
+    const recentSegmentChange = (getTimeSinceSegmentChange() < 1500); // 1.5 second safety window
     
     // Transform special characters in user input
     const transformedInput = transformSpecialCharacters(userInput);
@@ -229,55 +198,6 @@ export function compareTexts(userInput, referenceText) {
 }
 
 /**
- * Calculate text similarity using Levenshtein distance
- * @param {string} a - First string
- * @param {string} b - Second string
- * @returns {number} - Similarity percentage (0-100)
- */
-function calculateSimilarity(a, b) {
-    if (!a && !b) return 100;
-    if (!a || !b) return 0;
-    
-    const distance = levenshteinDistance(a, b);
-    const maxLength = Math.max(a.length, b.length);
-    
-    return Math.round(((maxLength - distance) / maxLength) * 100);
-}
-
-/**
- * Calculate Levenshtein distance between two strings
- * @param {string} a - First string
- * @param {string} b - Second string
- * @returns {number} - Edit distance
- */
-function levenshteinDistance(a, b) {
-    const matrix = [];
-    
-    // Initialize matrix
-    for (let i = 0; i <= b.length; i++) {
-        matrix[i] = [i];
-    }
-    
-    for (let j = 0; j <= a.length; j++) {
-        matrix[0][j] = j;
-    }
-    
-    // Fill matrix
-    for (let i = 1; i <= b.length; i++) {
-        for (let j = 1; j <= a.length; j++) {
-            const cost = b.charAt(i - 1) === a.charAt(j - 1) ? 0 : 1;
-            matrix[i][j] = Math.min(
-                matrix[i-1][j] + 1,      // deletion
-                matrix[i][j-1] + 1,      // insertion
-                matrix[i-1][j-1] + cost  // substitution
-            );
-        }
-    }
-    
-    return matrix[b.length][a.length];
-}
-
-/**
  * Align two texts for better error highlighting
  * @param {string} input - User input
  * @param {string} reference - Reference text
@@ -310,48 +230,4 @@ function alignTexts(input, reference) {
     }
     
     return result;
-}
-
-/**
- * Generate HTML with error highlighting for the user input
- * @param {string} input - The user's input text (or transformed input)
- * @param {Array} errorPositions - Array of error position objects {start, end}
- * @returns {string} - HTML string with highlighted errors
- */
-export function generateHighlightedHTML(input, errorPositions) {
-    if (!input) return '';
-    
-    // If no errors, all text is correct (green)
-    if (!errorPositions || errorPositions.length === 0) {
-        return `<span class="correct">${input}</span>`;
-    }
-    
-    // Build output with highlighting based on error positions
-    let output = '';
-    const chars = input.split('');
-    
-    chars.forEach((char, index) => {
-        // Check if this index is within any error position range
-        let isError = false;
-        for (const pos of errorPositions) {
-            // Handle both array of indices and array of {start, end} objects
-            if (typeof pos === 'number') {
-                isError = pos === index;
-            } else if (pos && typeof pos === 'object') {
-                isError = index >= pos.start && index < pos.end;
-            }
-            
-            if (isError) break;
-        }
-        
-        if (isError) {
-            // Error character (red)
-            output += `<span class="incorrect">${char}</span>`;
-        } else {
-            // Correct character (green)
-            output += `<span class="correct">${char}</span>`;
-        }
-    });
-    
-    return output;
 }

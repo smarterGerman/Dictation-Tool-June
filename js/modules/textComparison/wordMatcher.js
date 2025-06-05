@@ -4,6 +4,7 @@
  */
 import { calculateSimilarityScore } from './similarityScoring.js';
 import { textComparisonConfig } from '../config.js';
+import { getTimeSinceSegmentChange } from './textNormalizer.js';
 
 /**
  * Finds the best matches between expected words and actual user input
@@ -87,4 +88,110 @@ export function findBestWordMatches(
   });
   
   return result;
+}
+
+/**
+ * Align two texts for better error highlighting
+ * @param {string} input - User input
+ * @param {string} reference - Reference text
+ * @returns {Array} - Array of characters with status (correct, error, missing)
+ */
+export function alignTexts(input, reference) {
+  // Simple character-by-character comparison for now
+  const inputChars = input.split('');
+  const referenceChars = reference.split('');
+  const result = [];
+  
+  // Compare existing characters
+  for (let i = 0; i < inputChars.length; i++) {
+    if (i < referenceChars.length) {
+      if (inputChars[i] === referenceChars[i]) {
+        result.push({ char: inputChars[i], status: 'correct' });
+      } else {
+        result.push({ char: inputChars[i], status: 'error' });
+      }
+    } else {
+      // Extra character in input
+      result.push({ char: inputChars[i], status: 'error' });
+    }
+  }
+  
+  // Add placeholders for missing characters
+  for (let i = inputChars.length; i < referenceChars.length; i++) {
+    result.push({ char: ' ', status: 'missing' });
+  }
+  
+  return result;
+}
+
+/**
+ * Determines if user input is a match for the reference text
+ * Accounts for similarity threshold and recent segment changes
+ * 
+ * @param {Array} matches - Word match results from findBestWordMatches
+ * @param {number} totalExpectedWords - Total words in reference text
+ * @param {number} totalActualWords - Total words in user input
+ * @returns {boolean} - True if input is a match for reference text
+ */
+export function isTextMatch(matches, totalExpectedWords, totalActualWords) {
+  // Don't auto-advance if we recently changed segments
+  const recentSegmentChange = (getTimeSinceSegmentChange() < 1500); // 1.5 second safety window
+  
+  // Count correct words
+  const correctWords = matches.filter(match => !match.missing && !match.extra && match.score > 0.7).length;
+  
+  // Check if all words match
+  let isMatch = correctWords === totalExpectedWords && totalActualWords === totalExpectedWords;
+  
+  // If we just changed segments, prevent auto-advancement
+  if (isMatch && recentSegmentChange) {
+    console.log('Skipping auto-advance: too soon since last segment change');
+    isMatch = false; // Prevent auto-advancement
+  }
+  
+  return isMatch;
+}
+
+/**
+ * Generate HTML with error highlighting for the user input
+ * @param {string} input - The user's input text (or transformed input)
+ * @param {Array} errorPositions - Array of error position objects {start, end}
+ * @returns {string} - HTML string with highlighted errors
+ */
+export function generateHighlightedHTML(input, errorPositions) {
+  if (!input) return '';
+  
+  // If no errors, all text is correct (green)
+  if (!errorPositions || errorPositions.length === 0) {
+    return `<span class="correct">${input}</span>`;
+  }
+  
+  // Build output with highlighting based on error positions
+  let output = '';
+  const chars = input.split('');
+  
+  chars.forEach((char, index) => {
+    // Check if this index is within any error position range
+    let isError = false;
+    for (const pos of errorPositions) {
+      // Handle both array of indices and array of {start, end} objects
+      if (typeof pos === 'number') {
+        isError = pos === index;
+      } else if (pos && typeof pos === 'object') {
+        isError = index >= pos.start && index < pos.end;
+      }
+      
+      if (isError) break;
+    }
+    
+    if (isError) {
+      // Error character (red)
+      output += `<span class="incorrect">${char}</span>`;
+    } else {
+      // Correct character (green)
+      output += `<span class="correct">${char}</span>`;
+    }
+  });
+  
+  return output;
 }

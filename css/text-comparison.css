@@ -47,8 +47,31 @@
     line-height: 1.6;
 }
 
-/* Styling for reference text (only shown in results) */
+/* Reference text display styling */
 .reference-text {
+    color: #34495e;
+    font-size: 1.1em;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+/* Reference word status classes for highlighting based on user input */
+.ref-word-correct {
+    color: #2ecc71; /* Green for correctly typed words */
+}
+
+.ref-word-misspelled {
+    color: #f39c12; /* Orange for misspelled words */
+    text-decoration: underline dotted #f39c12;
+}
+
+.ref-word-missing {
+    color: #777; /* Gray for words not yet typed */
+}
+
+.ref-word-unmatched {
+    color: #777; /* Gray for words not yet matched */
+}
     color: #333;
     margin-top: 5px;
     padding-top: 5px;

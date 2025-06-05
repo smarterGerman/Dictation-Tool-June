@@ -355,7 +355,7 @@ function updateHighlighting(userInput, referenceText, container) {
             result.inputText = transformedInput;
             
             // Update UI using the display function
-            updateInputDisplay(result, container);
+            updateInputDisplay(result, container, referenceText);
             
             // Log for debugging
             // console.log("Comparison result:", JSON.stringify(result));

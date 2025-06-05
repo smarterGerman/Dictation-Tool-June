@@ -3,6 +3,7 @@
  */
 import { config } from './config.js';
 import { formatTime } from '../utils/helpers.js';
+import { generatePlaceholdersForReference, updatePlaceholders } from './uiManager.js';
 
 // Store the current timeupdate handler reference
 let currentTimeUpdateHandler = null;
@@ -295,4 +296,39 @@ function updateSegmentIndicator() {
     const total = segmentState.cues.length;
     
     indicatorElement.textContent = `Segment ${current} of ${total}`;
+}
+
+/**
+ * Display the current segment with reference text
+ * @param {number} segmentIndex - The index of the segment to display
+ */
+export function displaySegment(segmentIndex) {
+    const segment = segmentState.cues[segmentIndex];
+    const referenceText = segment.text;
+    
+    // Get your reference text container
+    const referenceContainer = document.querySelector('.reference-container'); // Update selector as needed
+    
+    // Clear previous content
+    referenceContainer.innerHTML = '';
+    
+    // Generate and add placeholder container
+    const placeholderContainer = generatePlaceholdersForReference(referenceText);
+    referenceContainer.appendChild(placeholderContainer);
+    
+    // Store reference to the container for updates
+    currentPlaceholderContainer = placeholderContainer;
+    
+    // Update the segment display (if you have any specific display logic)
+    updateSegmentDisplay(segment);
+}
+
+/**
+ * Update the segment display UI
+ * @param {Object} segment - The segment object containing cue data
+ */
+function updateSegmentDisplay(segment) {
+    // Implement your segment display update logic here
+    // This function is a placeholder for any additional UI updates needed
+    console.log(`Displaying segment: ${segment.text}`);
 }

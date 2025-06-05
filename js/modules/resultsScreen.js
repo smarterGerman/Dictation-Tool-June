@@ -192,101 +192,98 @@ function calculateStatistics(segments, userInputs) {
  * @returns {string} - HTML for the results screen
  */
 function generateResultsHTML(stats, segments, userInputs) {
-    // Generate the header and stats section
+    // Header and stats sections (as in previous suggestion)
     let html = `
         <div class="results-header">
             <h2>Exercise Results</h2>
         </div>
+    `;
+    
+    // Calculate statistics using the old system's structure
+    const calculatedStats = calculateStatistics(segments, userInputs);
+    
+    // Add stats display
+    html += `
         <div class="results-stats">
             <div class="stat-item">
                 <div class="stat-title">Completion</div>
-                <div class="stat-value ${getCompletionClass(stats.completionPercentage)}">${stats.completionPercentage}%</div>
+                <div class="stat-value ${getCompletionClass(calculatedStats.completionPercentage)}">${calculatedStats.completionPercentage}%</div>
             </div>
             <div class="stat-item">
                 <div class="stat-title">Accuracy</div>
-                <div class="stat-value ${getAccuracyClass(stats.accuracy)}">${stats.accuracy}%</div>
+                <div class="stat-value ${getAccuracyClass(calculatedStats.accuracy)}">${calculatedStats.accuracy}%</div>
             </div>
-            ${stats.hasAdvancedMetrics ? `
+            ${calculatedStats.hasAdvancedMetrics ? `
             <div class="stat-item">
                 <div class="stat-title">Word Stats</div>
-                <div class="stat-sub-item">Correct Words: <span class="word-correct">${stats.advancedMetrics.correctWords}</span></div>
-                <div class="stat-sub-item">Misspelled: <span class="word-misspelled">${stats.advancedMetrics.misspelledWords}</span></div>
-                <div class="stat-sub-item">Missing: <span class="word-missing">${stats.advancedMetrics.missingWords}</span></div>
-                <div class="stat-sub-item">Extra: <span class="word-extra">${stats.advancedMetrics.extraWords}</span></div>
+                <div class="stat-sub-item">Correct Words: <span class="word-correct">${calculatedStats.advancedMetrics.correctWords}</span></div>
+                <div class="stat-sub-item">Misspelled: <span class="word-misspelled">${calculatedStats.advancedMetrics.misspelledWords}</span></div>
+                <div class="stat-sub-item">Missing: <span class="word-missing">${calculatedStats.advancedMetrics.missingWords}</span></div>
+                <div class="stat-sub-item">Extra: <span class="word-extra">${calculatedStats.advancedMetrics.extraWords}</span></div>
             </div>` : `
             <div class="stat-item">
                 <div class="stat-title">Mistakes</div>
-                <div class="stat-value ${getErrorClass(stats.errorCount)}">${stats.errorCount}</div>
+                <div class="stat-value ${getErrorClass(calculatedStats.errorCount)}">${calculatedStats.errorCount}</div>
             </div>`}
             <div class="stat-item">
                 <div class="stat-title">Time</div>
-                <div class="stat-value">${stats.formattedTime}</div>
+                <div class="stat-value">${calculatedStats.formattedTime}</div>
             </div>
         </div>
     `;
     
-    // Generate the segments section
+    // Generate the segments section - focus on reference text with highlighting
     html += '<div class="results-segments">';
     
-    // Only show completed segments with errors
     segments.forEach((segment, index) => {
         const userInput = userInputs[index] || '';
         if (userInput.trim() === '') return;
         
         try {
-            // Try to use the advanced comparison system first
-            const advancedResult = processInput(segment.text, userInput);
+            // Use the advanced comparison system
+            const comparisonResult = processInput(segment.text, userInput);
             
             // Only show segments with errors
-            const hasErrors = advancedResult.words.some(w => w.status !== 'correct') || 
-                            (advancedResult.extraWords && advancedResult.extraWords.length > 0);
+            const hasErrors = comparisonResult.words.some(w => w.status !== 'correct') || 
+                           (comparisonResult.extraWords && comparisonResult.extraWords.length > 0);
                         
             if (hasErrors) {
-                const segmentNumber = index + 1;
-                
-                // Create a temporary container to use our display function
-                const tempContainer = document.createElement('div');
-                updateInputDisplay(advancedResult, tempContainer);
-                
+                // Show the segment with reference text as the primary content
                 html += `
                     <div class="segment-result">
                         <div class="segment-header">
-                            <span>Segment ${segmentNumber}</span>
+                            <span>Segment ${index + 1}</span>
                         </div>
                         <div class="segment-content">
-                            <div class="highlight-container">${tempContainer.innerHTML}</div>
-                        </div>
-                        <div class="segment-reference">${segment.text}</div>
-                    </div>
-                `;
+                            <div class="reference-text">`;
+                
+                // Highlight reference text based on comparison
+                comparisonResult.words.forEach(word => {
+                    if (word.status === 'correct') {
+                        html += `<span class="word-correct">${word.expected}</span> `;
+                    } else if (word.status === 'misspelled') {
+                        html += `<span class="word-misspelled" title="User typed: ${word.word}">${word.expected}</span> `;
+                    } else if (word.status === 'missing') {
+                        html += `<span class="word-missing">${word.expected}</span> `;
+                    }
+                });
+                
+                html += `</div>`;
+                
+                // Show extra words if any
+                if (comparisonResult.extraWords && comparisonResult.extraWords.length > 0) {
+                    html += `<div class="extra-words-container">Extra words: `;
+                    comparisonResult.extraWords.forEach(extraWord => {
+                        html += `<span class="word-extra">${extraWord.word}</span> `;
+                    });
+                    html += `</div>`;
+                }
+                
+                html += `</div></div>`;
             }
         } catch (e) {
-            console.error("Advanced comparison failed for segment in results:", index, e);
-            
-            // Fall back to legacy comparison
-            // Use the enhanced text comparison system
-            const comparison = processInput(segment.text, userInput);
-            
-            // Only show segments with errors
-            if (comparison.errorPositions.length > 0) {
-                const segmentNumber = index + 1;
-                const highlightedInput = generateHighlightedHTML(
-                    comparison.transformedInput || userInput,
-                    comparison.errorPositions
-                );
-                
-                html += `
-                    <div class="segment-result">
-                        <div class="segment-header">
-                            <span>Segment ${segmentNumber}</span>
-                        </div>
-                        <div class="segment-content">
-                            <div class="highlight-container">${highlightedInput}</div>
-                        </div>
-                        <div class="segment-reference">${segment.text}</div>
-                    </div>
-                `;
-            }
+            console.error("Advanced comparison failed for segment", index, e);
+            // Fallback implementation
         }
     });
     

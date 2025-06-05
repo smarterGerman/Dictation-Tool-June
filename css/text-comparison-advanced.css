@@ -39,3 +39,40 @@
     padding: 5px;
     border-radius: 3px;
 }
+
+.reference-placeholders {
+  display: block;
+  font-family: monospace;
+  font-size: 1.2em;
+  letter-spacing: 1px;
+  margin-bottom: 1.5em;
+}
+
+.word-placeholder {
+  display: inline-block;
+  margin-right: 10px;
+}
+
+.letter-placeholder {
+  display: inline-block;
+  margin: 0 2px;
+  font-weight: bold;
+  color: #e0e0e0;
+}
+
+.letter-placeholder.revealed {
+  color: #2ecc71; /* Green for correctly revealed letters */
+}
+
+.misspelled-word .letter-placeholder {
+  color: #e74c3c; /* Red for misspelled words */
+  text-decoration: underline wavy #e74c3c;
+}
+
+.placeholder-section {
+  margin-bottom: 15px;
+}
+
+.text-comparison-section {
+  margin-top: 10px;
+}

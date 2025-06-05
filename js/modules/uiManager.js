@@ -203,3 +203,71 @@ export function generateResultHTML(comparisonResult, referenceText) {
   
   return html;
 }
+
+/**
+ * Generate underscore placeholders for reference text
+ * @param {string} referenceText - The original reference text
+ * @returns {HTMLElement} - Container with underscore placeholders
+ */
+export function generatePlaceholdersForReference(referenceText) {
+  const container = document.createElement('div');
+  container.classList.add('reference-placeholders');
+  
+  const words = referenceText.split(/\s+/);
+  
+  words.forEach((word, index) => {
+    const wordSpan = document.createElement('span');
+    wordSpan.classList.add('word-placeholder');
+    
+    // Create underscores for each letter
+    for (let i = 0; i < word.length; i++) {
+      const letterSpan = document.createElement('span');
+      letterSpan.classList.add('letter-placeholder');
+      letterSpan.textContent = '_';
+      letterSpan.dataset.position = i;
+      letterSpan.dataset.letter = word[i];
+      wordSpan.appendChild(letterSpan);
+    }
+    
+    container.appendChild(wordSpan);
+    
+    // Add space between words, but not after the last word
+    if (index < words.length - 1) {
+      container.appendChild(document.createTextNode(' '));
+    }
+  });
+  
+  return container;
+}
+
+/**
+ * Update placeholders based on comparison results
+ * @param {Object} result - Comparison result from processInput
+ * @param {HTMLElement} placeholderContainer - Container with placeholders
+ */
+export function updatePlaceholders(result, placeholderContainer) {
+  if (!result || !result.words || !placeholderContainer) return;
+  
+  const wordPlaceholders = placeholderContainer.querySelectorAll('.word-placeholder');
+  
+  result.words.forEach((wordResult, wordIndex) => {
+    if (wordIndex >= wordPlaceholders.length) return;
+    
+    const wordElement = wordPlaceholders[wordIndex];
+    const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+    
+    if (wordResult.status === 'correct') {
+      // Reveal all letters in correctly guessed words
+      letterPlaceholders.forEach(letterSpan => {
+        letterSpan.textContent = letterSpan.dataset.letter;
+        letterSpan.classList.add('revealed');
+      });
+    } else if (wordResult.status === 'misspelled') {
+      // Highlight the word as misspelled
+      wordElement.classList.add('misspelled-word');
+    }
+  });
+  
+  // Handle extra words if needed
+  // (This part is optional since extra words don't affect placeholders)
+}

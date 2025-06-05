@@ -11,13 +11,15 @@ import {
     processInput, 
     notifySegmentChange 
 } from './textComparison/index.js';
-import { updateInputDisplay } from './uiManager.js';
+import { updateInputDisplay, updatePlaceholders, generatePlaceholdersForReference } from './uiManager.js';
 
 // Track input state
 let inputField = null;
 let highlightContainer = null;
 let segmentEnded = false;
 let currentInputTimer = null;
+let currentPlaceholderContainer = null;
+let currentTextComparisonContainer = null;  // Add this line
 
 /**
  * Check if the current segment is the last segment
@@ -171,8 +173,13 @@ function updateHighlighting(userInput, referenceText, container) {
             // Add the raw input text for display purposes
             result.inputText = transformedInput;
             
-            // Update UI with reference text
-            updateInputDisplay(result, container, referenceText);
+            // Update UI with reference text - use the textComparisonContainer instead
+            updateInputDisplay(result, currentTextComparisonContainer || container, referenceText);
+            
+            // Update placeholders based on comparison results
+            if (currentPlaceholderContainer) {
+                updatePlaceholders(result, currentPlaceholderContainer);
+            }
             
             return result;
         } catch (error) {
@@ -226,6 +233,9 @@ export function handleSegmentStarted(event) {
         if (inputField) {
             inputField.focus();
         }
+        
+        // Setup UI for the new segment
+        setupSegmentUI(segmentIndex);
     } catch (error) {
         console.error("Error in handleSegmentStarted:", error);
     }
@@ -280,4 +290,36 @@ export function clearCurrentInput() {
         // Focus back on input field
         inputField.focus();
     }
+}
+
+/**
+ * Setup the UI for a new segment
+ * @param {number} segmentIndex - Index of the segment
+ */
+function setupSegmentUI(segmentIndex) {
+    const segment = getCurrentSegment();
+    const referenceText = segment.text;
+    const highlightContainer = document.getElementById(config.highlightContainerId);
+    
+    // Clear previous content
+    highlightContainer.innerHTML = '';
+    
+    // Create two separate containers
+    const placeholderSection = document.createElement('div');
+    placeholderSection.classList.add('placeholder-section');
+    
+    const textComparisonSection = document.createElement('div');
+    textComparisonSection.classList.add('text-comparison-section');
+    
+    // Generate placeholder container
+    const placeholderContainer = generatePlaceholdersForReference(referenceText);
+    placeholderSection.appendChild(placeholderContainer);
+    
+    // Add both sections to the highlight container
+    highlightContainer.appendChild(placeholderSection);
+    highlightContainer.appendChild(textComparisonSection);
+    
+    // Store references for later updates
+    currentPlaceholderContainer = placeholderContainer;
+    currentTextComparisonContainer = textComparisonSection;
 }

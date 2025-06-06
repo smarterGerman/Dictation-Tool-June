@@ -12,7 +12,7 @@ import {
     processInputWithCharacterTracking, 
     notifySegmentChange 
 } from './textComparison/index.js';
-import { updateInputDisplay, updatePlaceholders, generatePlaceholdersForReference } from './uiManager.js';
+import { updateInputDisplay, updatePlaceholders, generatePlaceholdersForReference, createDualInputDisplay, updateRawInputDisplay, updateReferenceMappingDisplay, isCompleteMatch } from './uiManager.js';
 
 // Track input state
 let inputField = null;
@@ -21,6 +21,9 @@ let segmentEnded = false;
 let currentInputTimer = null;
 let currentPlaceholderContainer = null;
 let currentTextComparisonContainer = null;  // Add this line
+let dualInputDisplays = null;
+// Flag to prevent multiple rapid submissions
+let isProcessingSubmission = false;
 
 /**
  * Check if the current segment is the last segment
@@ -45,6 +48,14 @@ export function initInputManager() {
         
         // Listen for key presses to handle special controls
         inputField.addEventListener('keydown', handleKeyDown);
+        
+        // Add event listener for Enter key to submit input
+        inputField.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitUserInput();
+            }
+        });
     } else {
         console.error('Input field element not found!');
     }
@@ -53,9 +64,13 @@ export function initInputManager() {
     document.addEventListener('segmentEnded', handleSegmentEnded);
     document.addEventListener('segmentStarted', handleSegmentStarted);
     
+    // Initialize input field with event handlers
+    setupInputField();
+    
     // Return public interface
     return {
-        clearCurrentInput
+        clearCurrentInput,
+        hideInputField  // This references the function that needs to be implemented
     };
 }
 
@@ -97,10 +112,31 @@ function handleInputEvent(event) {
     } else {
         inputField.classList.remove('has-content');
     }
-    
-    // Update highlighting based on comparison
-    updateHighlighting(userInput, referenceText, highlightContainer);
-    
+
+    // Immediate update to raw input display
+    if (dualInputDisplays && dualInputDisplays.rawInputDisplay) {
+        updateRawInputDisplay(dualInputDisplays.rawInputDisplay, userInput);
+    }
+
+    // Debounced update to reference mapping display
+    if (dualInputDisplays && dualInputDisplays.referenceMapRow) {
+        clearTimeout(currentInputTimer);
+        currentInputTimer = setTimeout(() => {
+            const result = processInputWithCharacterTracking(referenceText, userInput);
+            updateReferenceMappingDisplay(dualInputDisplays.referenceMapRow, result, referenceText);
+            // Also update placeholders for legacy UI if needed
+            if (currentPlaceholderContainer) {
+                updatePlaceholders(result, currentPlaceholderContainer);
+            }
+            // Log performance metrics
+            const endTime = performance.now();
+            const processingTime = endTime - startTime;
+            if (processingTime > 20) {
+               // console.debug(`Character-by-character processing time: ${processingTime.toFixed(2)}ms`);
+            }
+        }, 50);
+    }
+
     // If segment has ended and input matches well enough, auto-advance
     const shouldAutoAdvance = config.autoAdvanceOnMatch && segmentEnded;
     const currentSegment = getCurrentSegment();
@@ -239,70 +275,26 @@ export function handleSegmentStarted(event) {
         segmentEnded = false;
         clearTimeout(currentInputTimer);
         
-        // Load any existing input for this segment
-        const segmentIndex = event.segmentIndex || 0;
-        loadExistingInput(segmentIndex);
-        
-        // Give focus to input field
-        if (inputField) {
-            inputField.focus();
+        // Make sure the input container is visible
+        const inputContainer = document.getElementById(config.inputContainerId);
+        if (inputContainer) {
+            inputContainer.style.display = 'block';
         }
         
-        // Setup UI for the new segment
-        setupSegmentUI(segmentIndex);
-    } catch (error) {
-        console.error("Error in handleSegmentStarted:", error);
-    }
-}
-
-/**
- * Load existing user input for a segment
- * @param {number} segmentIndex - Index of the segment
- */
-function loadExistingInput(segmentIndex) {
-    try {
-        if (inputField) {
-            const savedInput = getUserInput(segmentIndex);
-            
-            if (savedInput) {
-                inputField.value = savedInput;
-                inputField.classList.add('has-content');
-                
-                // Update highlighting with saved input
-                const segment = getCurrentSegment();
-                if (segment) {
-                    updateHighlighting(savedInput, segment.text, highlightContainer);
-                }
-            } else {
-                inputField.value = '';
-                inputField.classList.remove('has-content');
+        // Set up the segment UI
+        setupSegmentUI(event.detail.index);
+        
+        // Restore any previously entered input for this segment
+        const segment = getCurrentSegment();
+        if (segment) {
+            const savedInput = getUserInput(segment.index);
+            if (inputField) {
+                inputField.value = savedInput || '';
+                inputField.focus();
             }
         }
     } catch (error) {
-        console.error("Error in loadExistingInput:", error);
-    }
-}
-
-/**
- * Clear input for current segment
- */
-export function clearCurrentInput() {
-    if (inputField) {
-        inputField.value = '';
-        inputField.classList.remove('has-content');
-        
-        // Clear the highlighting
-        const segment = getCurrentSegment();
-        if (segment && highlightContainer) {
-            updateHighlighting('', segment.text, highlightContainer);
-        }
-        
-        // Save the cleared state
-        const currentIndex = segment ? segment.index : 0;
-        saveUserInput(currentIndex, '');
-        
-        // Focus back on input field
-        inputField.focus();
+        console.error("Error in handleSegmentStarted:", error);
     }
 }
 
@@ -318,14 +310,10 @@ function setupSegmentUI(segmentIndex) {
     // Clear previous content
     highlightContainer.innerHTML = '';
     
-    // Generate placeholder container
-    const placeholderContainer = generatePlaceholdersForReference(referenceText);
-    highlightContainer.appendChild(placeholderContainer);
+    // Generate dual input display (raw + reference mapping)
+    dualInputDisplays = createDualInputDisplay(highlightContainer);
     
-    // Store reference for later updates
-    currentPlaceholderContainer = placeholderContainer;
-    
-    // Make the placeholder container clickable to focus input
+    // Make the highlight container clickable to focus input
     highlightContainer.addEventListener('click', () => {
         if (inputField) {
             inputField.focus();
@@ -335,5 +323,103 @@ function setupSegmentUI(segmentIndex) {
     // Focus the input field immediately
     if (inputField) {
         inputField.focus();
+    }
+}
+
+/**
+ * Hide the input field (called when navigating between segments)
+ */
+function hideInputField() {
+    if (inputField) {
+        const inputContainer = document.getElementById(config.inputContainerId);
+        if (inputContainer) {
+            inputContainer.style.display = 'none';
+        }
+    }
+}
+
+// Make sure the function is properly exported as part of the public interface
+export function clearCurrentInput() {
+    if (inputField) {
+        inputField.value = '';
+        handleInputEvent({ target: inputField });
+    }
+}
+
+/**
+ * Submit user input and advance to next segment
+ */
+function submitUserInput() {
+    if (!inputField || isProcessingSubmission) return;
+    
+    // Prevent multiple rapid submissions
+    isProcessingSubmission = true;
+    
+    try {
+        const userInput = inputField.value.trim();
+        const currentSegment = getCurrentSegment();
+        
+        if (!currentSegment) {
+            isProcessingSubmission = false;
+            return;
+        }
+        
+        // Process the input and compare with reference text
+        const result = processInput(currentSegment.text, userInput);
+        const isCorrect = isCompleteMatch(result);
+        
+        // Save user input
+        saveUserInput(currentSegment.index, userInput);
+        
+        // Clear the input field
+        inputField.value = '';
+        
+        // Clear any displayed highlights
+        updateHighlighting('', currentSegment.text);
+        
+        // IMPORTANT: Only dispatch the event and let the listener in main.js handle navigation
+        // Do NOT click the next button here (removing that code)
+        document.dispatchEvent(new CustomEvent('inputSubmitted', {
+            detail: {
+                index: currentSegment.index,
+                text: userInput,
+                isCorrect: isCorrect
+            }
+        }));
+        
+        // Reset processing flag after a delay
+        setTimeout(() => {
+            isProcessingSubmission = false;
+        }, 500);
+        
+    } catch (error) {
+        console.error('Error submitting input:', error);
+        isProcessingSubmission = false;
+    }
+}
+
+/**
+ * Initialize input field with event handlers
+ * @param {Object} options - Configuration options
+ */
+function setupInputField(options = {}) {
+    // Setup already exists in the initInputManager function
+    // This is just ensuring we don't call an undefined function
+    
+    // Get input elements
+    const submitBtn = document.getElementById(config.submitBtnId);
+    
+    // Add submit button click handler if it exists
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function() {
+            submitUserInput();
+        });
+    }
+    
+    // Initial focus
+    if (inputField) {
+        setTimeout(() => {
+            inputField.focus();
+        }, 100);
     }
 }

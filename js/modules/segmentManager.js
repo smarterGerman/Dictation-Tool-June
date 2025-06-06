@@ -162,7 +162,11 @@ export function nextSegment(audio) {
     // If not at the last segment, proceed with normal advancement
     segmentState.currentIndex++;
     updateSegmentIndicator();
-    playCurrentSegment(audio);
+    
+    // Add a small delay before playing to avoid race condition
+    setTimeout(() => {
+        playCurrentSegment(audio);
+    }, 50);
 }
 
 /**

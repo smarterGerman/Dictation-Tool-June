@@ -70,8 +70,9 @@ export function setupUI(audio, segmentState, inputManager) {
     // Listen for input submitted events to handle segment transitions
     document.addEventListener('inputSubmitted', (e) => {
         // Hide the input field when moving to the next segment
-        if (inputManager) {
-            inputManager.hideInputField();
+        const inputContainer = document.getElementById(config.inputContainerId);
+        if (inputContainer) {
+            inputContainer.style.display = 'none';
         }
     });
 }

@@ -100,6 +100,19 @@ export function processInputWithCharacterTracking(referenceText, userInput) {
   // Get standard word matching result
   const wordMatchResult = processInput(referenceText, userInput);
   
+  // Store the original input word order explicitly
+  const inputWords = userInput.trim().split(/\s+/);
+  inputWords.forEach((word, index) => {
+    // Find the corresponding word in the result
+    for (const wordMatch of wordMatchResult.words) {
+      if (wordMatch.word && wordMatch.word.toLowerCase() === word.toLowerCase()) {
+        // Store the original input index
+        wordMatch.inputWordIndex = index;
+        break;
+      }
+    }
+  });
+  
   // Add character-level tracking
   wordMatchResult.characterMapping = buildCharacterMapping(
     wordMatchResult, 

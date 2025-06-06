@@ -250,69 +250,94 @@ export function updatePlaceholders(result, placeholderContainer) {
   if (!result || !placeholderContainer) return;
   
   const allWords = placeholderContainer.querySelectorAll('.word-placeholder');
-  const userInput = result.inputText || '';
   
-  // Process each word in the comparison result
-  result.words.forEach((wordResult, wordIndex) => {
-    if (wordIndex >= allWords.length) return;
-    
-    const wordElement = allWords[wordIndex];
-    const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-    
-    // Apply word status class
-    wordElement.className = 'word-placeholder';
-    if (wordResult.status !== 'missing') {
-      wordElement.classList.add(`word-${wordResult.status}`);
-    }
-    
-    // Reset all letters first to underscore state
-    letterPlaceholders.forEach(letterSpan => {
-      letterSpan.textContent = '_';
-      letterSpan.className = 'letter-placeholder';
+  // Reset all words and letters to base state
+  allWords.forEach(word => {
+    word.className = 'word-placeholder';
+    const letters = word.querySelectorAll('.letter-placeholder');
+    letters.forEach(letter => {
+      letter.textContent = '_';
+      letter.className = 'letter-placeholder';
     });
   });
   
-  // Character-by-character display implementation
-  // First, create a simple mapping from user input to reference text
-  const inputWords = userInput.trim().split(/\s+/);
-  let currentInputPos = 0;
-  
-  // For each word the user has entered
-  inputWords.forEach((inputWord, inputWordIndex) => {
-    // Find which reference word this matches with
-    let matchedRefWordIndex = -1;
-    
-    // Look for this word in our comparison results
-    result.words.forEach((wordResult, refWordIndex) => {
-      if (wordResult.inputWordIndex === inputWordIndex || 
-          (wordResult.word && wordResult.word.toLowerCase() === inputWord.toLowerCase())) {
-        matchedRefWordIndex = refWordIndex;
+  // Step 1: Apply word-level status classes
+  if (result.words) {
+    result.words.forEach((wordResult, wordIndex) => {
+      if (wordIndex >= allWords.length) return;
+      
+      const wordElement = allWords[wordIndex];
+      
+      // Apply appropriate word status class
+      if (wordResult.status !== 'missing') {
+        wordElement.classList.add(`word-${wordResult.status}`);
       }
     });
-    
-    // If we found a matching reference word
-    if (matchedRefWordIndex !== -1 && matchedRefWordIndex < allWords.length) {
-      const wordElement = allWords[matchedRefWordIndex];
-      const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-      const wordStatus = result.words[matchedRefWordIndex].status;
-      
-      // Show characters that have been typed
-      for (let i = 0; i < Math.min(inputWord.length, letterPlaceholders.length); i++) {
-        const letterSpan = letterPlaceholders[i];
-        letterSpan.textContent = letterSpan.dataset.letter;
-        letterSpan.classList.add('revealed');
+  }
+  
+  // Step 2: Use character mapping for precise letter display
+  if (result.characterMapping) {
+    // Use the detailed character mapping for precise display
+    result.characterMapping.forEach(charMap => {
+      if (charMap.wordIndex >= 0 && charMap.wordIndex < allWords.length) {
+        const wordElement = allWords[charMap.wordIndex];
+        const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
         
-        // Apply status class to each letter
-        if (wordStatus === 'correct') {
-          letterSpan.classList.add('correct');
-        } else if (wordStatus === 'misspelled') {
-          letterSpan.classList.add('misspelled');
+        if (charMap.charIndex >= 0 && charMap.charIndex < letterPlaceholders.length) {
+          const letterSpan = letterPlaceholders[charMap.charIndex];
+          letterSpan.textContent = letterSpan.dataset.letter;
+          letterSpan.classList.add('revealed');
+          
+          // Apply correct/incorrect styling based on character match
+          if (charMap.isMatch) {
+            letterSpan.classList.add('correct');
+          } else {
+            letterSpan.classList.add('misspelled');
+          }
         }
       }
-    }
+    });
+  } 
+  // Fallback to word-level display if no character mapping available
+  else if (result.words && result.inputText) {
+    // Get input words
+    const inputWords = result.inputText.trim().split(/\s+/);
     
-    currentInputPos += inputWord.length + 1; // +1 for space
-  });
+    // For each word the user has entered
+    inputWords.forEach((inputWord, inputWordIndex) => {
+      // Find which reference word this matches with
+      let matchedRefWordIndex = -1;
+      
+      // Look for this word in our comparison results
+      result.words.forEach((wordResult, refWordIndex) => {
+        if (wordResult.inputWordIndex === inputWordIndex || 
+            (wordResult.word && wordResult.word.toLowerCase() === inputWord.toLowerCase())) {
+          matchedRefWordIndex = refWordIndex;
+        }
+      });
+      
+      // If we found a matching reference word
+      if (matchedRefWordIndex !== -1 && matchedRefWordIndex < allWords.length) {
+        const wordElement = allWords[matchedRefWordIndex];
+        const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+        const wordStatus = result.words[matchedRefWordIndex].status;
+        
+        // Show characters that have been typed
+        for (let i = 0; i < Math.min(inputWord.length, letterPlaceholders.length); i++) {
+          const letterSpan = letterPlaceholders[i];
+          letterSpan.textContent = letterSpan.dataset.letter;
+          letterSpan.classList.add('revealed');
+          
+          // Apply status class to each letter
+          if (wordStatus === 'correct') {
+            letterSpan.classList.add('correct');
+          } else if (wordStatus === 'misspelled') {
+            letterSpan.classList.add('misspelled');
+          }
+        }
+      }
+    });
+  }
   
   // Handle extra words if any
   if (result.extraWords && result.extraWords.length > 0) {
@@ -323,9 +348,15 @@ export function updatePlaceholders(result, placeholderContainer) {
       extraWordsContainer = document.createElement('div');
       extraWordsContainer.classList.add('extra-words-container');
       placeholderContainer.appendChild(extraWordsContainer);
+    } else {
+      // Clear existing content
+      extraWordsContainer.innerHTML = '';
     }
     
-    extraWordsContainer.innerHTML = 'Extra: ';
+    // Add label for extra words
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = 'Extra: ';
+    extraWordsContainer.appendChild(labelSpan);
     
     // Add each extra word
     result.extraWords.forEach(extraWord => {

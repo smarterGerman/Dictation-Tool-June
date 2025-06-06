@@ -39,21 +39,25 @@
     border-radius: 4px;
 }
 
+/* Placeholder styling */
 .reference-placeholders {
   display: block;
   font-family: monospace;
   font-size: 1.2em;
   letter-spacing: 1px;
-  margin-bottom: 0; /* Remove bottom margin to bring closer to input area */
+  margin-bottom: 0;
   padding: 15px;
-  background-color: #f8f8f8; /* Match the input container background */
+  background-color: #f8f8f8;
   border-radius: 8px;
   line-height: 1.8;
+  position: relative; /* For positioning cursor indicator */
 }
 
 .word-placeholder {
   display: inline-block;
   margin-right: 10px;
+  position: relative; /* For positioning effects */
+  transition: color 0.15s ease-in-out;
 }
 
 .word-placeholder.word-correct .letter-placeholder {
@@ -71,25 +75,60 @@
   font-weight: bold;
   color: #e0e0e0; /* Light gray for underscores */
   font-size: 1.2em;
+  transition: color 0.15s ease-in-out, transform 0.15s ease-in-out;
 }
 
+/* Character status classes with improved transitions */
 .letter-placeholder.revealed {
+  color: #2ecc71; /* Green for correctly revealed letters */
+  transform: scale(1.05); /* Slight pop effect when revealed */
+  animation: revealPop 0.15s ease-in-out;
+}
+
+.letter-placeholder.correct {
   color: #2ecc71; /* Green for correctly revealed letters */
 }
 
 .letter-placeholder.misspelled {
   color: #e74c3c; /* Red for misspelled letters */
+  animation: misspelledShake 0.2s ease-in-out;
 }
 
-.misspelled-word .letter-placeholder {
-  color: #e74c3c; /* Red for misspelled words */
-  text-decoration: underline wavy #e74c3c;
+/* Animation for newly revealed characters */
+@keyframes revealPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1.05); }
 }
 
+/* Animation for misspelled characters */
+@keyframes misspelledShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+
+/* Section layout */
 .placeholder-section {
   margin-bottom: 15px;
 }
 
 .text-comparison-section {
   margin-top: 10px;
+  display: none; /* Hide the redundant text comparison section */
+}
+
+/* Hide the input field but make the entire container clickable */
+.transcription-input {
+  position: absolute;
+  opacity: 0;
+  height: 0;
+  width: 100%;
+  z-index: -1;
+}
+
+.input-container {
+  position: relative;
+  cursor: text;
+  min-height: 100px;
 }

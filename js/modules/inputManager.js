@@ -8,7 +8,8 @@ import { getCurrentSegment, nextSegment, jumpToSegment } from './segmentManager.
 import { config } from './config.js';
 import { 
     transformSpecialCharacters, 
-    processInput, 
+    processInput,
+    processInputWithCharacterTracking, 
     notifySegmentChange 
 } from './textComparison/index.js';
 import { updateInputDisplay, updatePlaceholders, generatePlaceholdersForReference } from './uiManager.js';
@@ -77,6 +78,9 @@ function debounce(func, wait) {
  * @param {Event} event - Input event
  */
 function handleInputEvent(event) {
+    // Track performance
+    const startTime = performance.now();
+    
     const userInput = inputField.value || '';
     const segment = getCurrentSegment();
     
@@ -116,6 +120,13 @@ function handleInputEvent(event) {
                 nextSegment(audio);
             }, config.autoAdvanceDelay);
         }
+    }
+    
+    // Log performance metrics
+    const endTime = performance.now();
+    const processingTime = endTime - startTime;
+    if (processingTime > 20) {
+        console.debug(`Character-by-character processing time: ${processingTime.toFixed(2)}ms`);
     }
 }
 
@@ -173,8 +184,8 @@ function updateHighlighting(userInput, referenceText, container) {
         const transformedInput = transformSpecialCharacters(userInput);
         
         try {
-            // Process input with advanced algorithm
-            const result = processInput(referenceText, transformedInput);
+            // Process input with character-level tracking for better display
+            const result = processInputWithCharacterTracking(referenceText, transformedInput);
             
             // Add the raw input text for display purposes
             result.inputText = transformedInput;

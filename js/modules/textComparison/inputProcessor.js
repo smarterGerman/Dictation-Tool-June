@@ -89,3 +89,98 @@ export function processInput(referenceText, userInput) {
   
   return result;
 }
+
+/**
+ * Processes input text with character-level tracking
+ * @param {string} referenceText - The expected text
+ * @param {string} userInput - The text entered by the user
+ * @return {Object} - Detailed comparison results with character mapping
+ */
+export function processInputWithCharacterTracking(referenceText, userInput) {
+  // Get standard word matching result
+  const wordMatchResult = processInput(referenceText, userInput);
+  
+  // Add character-level tracking
+  wordMatchResult.characterMapping = buildCharacterMapping(
+    wordMatchResult, 
+    referenceText, 
+    userInput
+  );
+  
+  return wordMatchResult;
+}
+
+/**
+ * Builds a mapping between input characters and reference characters
+ * @param {Object} wordResult - Result from word matching
+ * @param {string} referenceText - Original reference text
+ * @param {string} userInput - User input text
+ * @return {Array} - Array of character mapping objects
+ */
+function buildCharacterMapping(wordResult, referenceText, userInput) {
+  const charMapping = [];
+  
+  if (!userInput || !referenceText || !wordResult.words) {
+    return charMapping;
+  }
+  
+  const referenceWords = referenceText.split(/\s+/);
+  const inputWords = userInput.split(/\s+/);
+  
+  // Process each input word
+  inputWords.forEach((inputWord, inputWordIndex) => {
+    // Skip empty words
+    if (!inputWord.trim()) return;
+    
+    // Find corresponding reference word
+    let matchedWord = null;
+    let matchedWordIndex = -1;
+    
+    // Look through all matched words to find this input word
+    wordResult.words.forEach((wordMatch, wordIndex) => {
+      if (wordMatch.word && 
+          (wordMatch.inputWordIndex === inputWordIndex ||
+           wordMatch.word.toLowerCase() === inputWord.toLowerCase())) {
+        matchedWord = wordMatch;
+        matchedWordIndex = wordIndex;
+      }
+    });
+    
+    // If we found a match
+    if (matchedWord && matchedWord.status !== 'missing') {
+      const refWord = referenceWords[matchedWordIndex];
+      
+      // Map each character
+      for (let i = 0; i < inputWord.length; i++) {
+        const refChar = i < refWord.length ? refWord[i] : null;
+        
+        charMapping.push({
+          inputWordIndex, 
+          inputCharIndex: i,
+          wordIndex: matchedWordIndex,
+          charIndex: i < refWord.length ? i : -1,
+          char: inputWord[i],
+          refChar: refChar,
+          isMatch: refChar && inputWord[i].toLowerCase() === refChar.toLowerCase()
+        });
+      }
+    } else {
+      // This is an extra word or couldn't be matched
+      // Still track its characters but without mapping to reference
+      for (let i = 0; i < inputWord.length; i++) {
+        charMapping.push({
+          inputWordIndex,
+          inputCharIndex: i,
+          wordIndex: -1,
+          charIndex: -1,
+          char: inputWord[i],
+          refChar: null,
+          isMatch: false,
+          isExtra: true
+        });
+      }
+    }
+  });
+  
+  return charMapping;
+}

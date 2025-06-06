@@ -6,7 +6,7 @@
 import { findBestWordMatches, generateHighlightedHTML } from './wordMatcher.js';
 import { calculateSimilarityScore, levenshteinDistance } from './similarityScoring.js';
 import { normalizeText, normalizeWord, transformSpecialCharacters, notifySegmentChange, getTimeSinceSegmentChange } from './textNormalizer.js';
-import { processInput } from './inputProcessor.js';
+import { processInput, processInputWithCharacterTracking } from './inputProcessor.js';
 
 // Function to generate HTML for results (needed by resultsScreen.js)
 export function generateResultHTML(input, referenceText) {
@@ -42,5 +42,6 @@ export {
   transformSpecialCharacters,
   notifySegmentChange,
   getTimeSinceSegmentChange,
-  processInput
+  processInput,
+  processInputWithCharacterTracking
 };

@@ -42,10 +42,24 @@ export function findBestWordMatches(expectedWords, actualWords) {
     for (let j = 0; j < normalizedActual.length; j++) {
       if (matchedActual[j]) continue; // Skip already matched actual words
       
+      // Use enhanced similarity scoring with all our new features
       const similarity = calculateSimilarityScore(normalizedExpected[i], normalizedActual[j]);
       
-      // If good match (proven threshold of 0.3)
-      if (similarity >= 0.3) {
+      // Get a dynamic threshold based on word length and config
+      const wordLength = normalizedExpected[i].length;
+      let dynamicThreshold = 0.3; // Default threshold
+      
+      if (wordLength > 5) {
+        // For longer words, be more lenient with the threshold
+        // Apply a sliding scale: longer words get lower thresholds
+        dynamicThreshold = Math.max(
+          0.2,  // Never go below 0.2
+          0.3 - ((wordLength - 5) * 0.01) // Reduce threshold by 0.01 per character above 5
+        );
+      }
+      
+      // If good match (using dynamic threshold)
+      if (similarity >= dynamicThreshold) {
         matchedExpected[i] = true;
         matchedActual[j] = true;
         
@@ -105,7 +119,10 @@ export function generateHighlightedHTML(comparisonResult) {
     if (word.status === 'correct') {
       html += `<span class="word-correct">${word.expected}</span> `;
     } else if (word.status === 'misspelled') {
-      html += `<span class="word-misspelled" title="You typed: ${word.word || ''}">${word.expected}</span> `;
+      // Enhanced tooltip showing what was typed and similarity score
+      const similarityPercent = Math.round(word.similarity * 100);
+      html += `<span class="word-misspelled" 
+        title="You typed: ${word.word || ''} (${similarityPercent}% match)">${word.expected}</span> `;
     } else if (word.status === 'missing') {
       html += `<span class="word-missing">${word.expected}</span> `;
     }

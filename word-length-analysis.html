@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Length vs. Similarity Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .test-container {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .explanation {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Word Length vs. Similarity Score Analysis</h1>
+    
+    <p>This page demonstrates how word length affects similarity scoring in our enhanced German word matching algorithm.</p>
+    
+    <div class="explanation">
+        <h2>Understanding Short Word Similarity</h2>
+        <p>Short words (like 3-letter words) often receive surprisingly high similarity scores even with completely different initial letters. This happens because:</p>
+        <ul>
+            <li>Each character in a short word represents a large percentage of the total word</li>
+            <li>Position-based weighting gives slightly less penalty to errors at word beginnings</li>
+            <li>Normalization effects can amplify similarity in very short words</li>
+        </ul>
+        <p>This is mathematically consistent and provides good matching results in practice.</p>
+    </div>
+
+    <div class="test-container">
+        <h2>Test: Single Character Difference</h2>
+        <p>Compare words with exactly one character different, at different word lengths:</p>
+        <div id="single-char-test"></div>
+        
+        <h3>Data Table</h3>
+        <table id="single-char-table">
+            <thead>
+                <tr>
+                    <th>Word Length</th>
+                    <th>Reference Word</th>
+                    <th>Test Word</th>
+                    <th>Different Chars</th>
+                    <th>Similarity Score</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="test-container">
+        <h2>Test: Multiple Character Difference</h2>
+        <p>Compare words with increasing numbers of character errors:</p>
+        <div id="multi-char-test"></div>
+        
+        <h3>Data Table</h3>
+        <table id="multi-char-table">
+            <thead>
+                <tr>
+                    <th>Word Length</th>
+                    <th>Reference Word</th>
+                    <th>Test Word</th>
+                    <th>Different Chars</th>
+                    <th>Similarity Score</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module">
+        import { calculateSimilarityScore } from './js/modules/textComparison/similarityScoring.js';
+
+        // Test data: single character difference at various word lengths
+        const singleCharTests = [
+            { refWord: "gut", testWord: "but", length: 3 },
+            { refWord: "Haus", testWord: "Maus", length: 4 },
+            { refWord: "Liebe", testWord: "Liege", length: 5 },
+            { refWord: "Garten", testWord: "Karten", length: 6 },
+            { refWord: "spielen", testWord: "spiemen", length: 7 },
+            { refWord: "Fenster", testWord: "Fensten", length: 7 },
+            { refWord: "Flasche", testWord: "Flische", length: 7 },
+            { refWord: "Computer", testWord: "Compuzer", length: 8 },
+            { refWord: "verstehen", testWord: "versteheb", length: 9 },
+            { refWord: "Geschichte", testWord: "Geschiahte", length: 10 },
+            { refWord: "Information", testWord: "Informatikn", length: 11 },
+            { refWord: "Universität", testWord: "Universitöt", length: 11 },
+            { refWord: "Entwicklung", testWord: "Entwicklunt", length: 11 },
+            { refWord: "Entschuldigung", testWord: "Entschuldifung", length: 14 },
+            { refWord: "Selbstständigkeit", testWord: "Selbstständigkeat", length: 17 },
+            { refWord: "Wahrscheinlichkeit", testWord: "Wahrscheinlichkrit", length: 18 },
+        ];
+
+        // Calculate scores for single character tests
+        const singleCharResults = singleCharTests.map(test => {
+            const score = calculateSimilarityScore(test.refWord, test.testWord);
+            return {
+                ...test,
+                diffChars: 1,
+                score: score
+            };
+        });
+
+        // Generate multi-character test data
+        const multiCharTests = [
+            { refWord: "Haus", testWord: "Mour", diffChars: 2, length: 4 },
+            { refWord: "Liebe", testWord: "Liehe", diffChars: 1, length: 5 },
+            { refWord: "Liebe", testWord: "Lieke", diffChars: 2, length: 5 },
+            { refWord: "Garten", testWord: "Gorten", diffChars: 1, length: 6 },
+            { refWord: "Garten", testWord: "Gerten", diffChars: 2, length: 6 },
+            { refWord: "Garten", testWord: "Gerten", diffChars: 3, length: 6 },
+            { refWord: "spielen", testWord: "spuelen", diffChars: 1, length: 7 },
+            { refWord: "spielen", testWord: "spueten", diffChars: 2, length: 7 },
+            { refWord: "spielen", testWord: "spueton", diffChars: 3, length: 7 },
+            { refWord: "Computer", testWord: "Compiter", diffChars: 1, length: 8 },
+            { refWord: "Computer", testWord: "Competer", diffChars: 2, length: 8 },
+            { refWord: "Computer", testWord: "Compoter", diffChars: 3, length: 8 },
+            { refWord: "verstehen", testWord: "verstehon", diffChars: 1, length: 9 },
+            { refWord: "verstehen", testWord: "verstehun", diffChars: 2, length: 9 },
+            { refWord: "verstehen", testWord: "verstehus", diffChars: 3, length: 9 },
+            { refWord: "Geschichte", testWord: "Geschechte", diffChars: 1, length: 10 },
+            { refWord: "Geschichte", testWord: "Geschachte", diffChars: 2, length: 10 },
+            { refWord: "Geschichte", testWord: "Geschachti", diffChars: 3, length: 10 }
+        ];
+
+        // Calculate scores for multi-character tests
+        const multiCharResults = multiCharTests.map(test => {
+            const score = calculateSimilarityScore(test.refWord, test.testWord);
+            return {
+                ...test,
+                score: score
+            };
+        });
+
+        // Populate tables
+        function populateTable(data, tableId) {
+            const tbody = document.querySelector(`#${tableId} tbody`);
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.length}</td>
+                    <td>${item.refWord}</td>
+                    <td>${item.testWord}</td>
+                    <td>${item.diffChars}</td>
+                    <td>${item.score.toFixed(3)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Create charts
+        function createLengthChart(data, containerId) {
+            const ctx = document.createElement('canvas');
+            document.getElementById(containerId).appendChild(ctx);
+            
+            const groupedByLength = {};
+            data.forEach(item => {
+                if (!groupedByLength[item.length]) {
+                    groupedByLength[item.length] = [];
+                }
+                groupedByLength[item.length].push(item.score);
+            });
+            
+            const lengths = Object.keys(groupedByLength).map(Number);
+            const avgScores = lengths.map(length => {
+                const scores = groupedByLength[length];
+                return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+            });
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: lengths,
+                    datasets: [{
+                        label: 'Average Similarity Score by Word Length',
+                        data: avgScores,
+                        borderColor: 'rgb(54, 162, 235)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 1
+                        }
+                    }
+                }
+            });
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', () => {
+            populateTable(singleCharResults, 'single-char-table');
+            populateTable(multiCharResults, 'multi-char-table');
+            createLengthChart(singleCharResults, 'single-char-test');
+            
+            // Create a chart for multiple differences
+            const ctx = document.createElement('canvas');
+            document.getElementById('multi-char-test').appendChild(ctx);
+            
+            // Group by number of different chars
+            const groupedByDiff = {};
+            multiCharResults.forEach(item => {
+                if (!groupedByDiff[item.diffChars]) {
+                    groupedByDiff[item.diffChars] = [];
+                }
+                groupedByDiff[item.diffChars].push(item);
+            });
+            
+            const datasets = Object.entries(groupedByDiff).map(([diffChars, items]) => {
+                return {
+                    label: `${diffChars} character difference${diffChars > 1 ? 's' : ''}`,
+                    data: items.map(item => ({ x: item.length, y: item.score })),
+                    borderColor: `hsl(${220 - diffChars * 60}, 70%, 50%)`,
+                    tension: 0.1
+                };
+            });
+            
+            new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: 'Similarity Score'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Word Length'
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

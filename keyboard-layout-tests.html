@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyboard Layout Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .passed { color: green; }
+        .failed { color: red; }
+        .test-group {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .summary {
+            margin-top: 20px;
+            font-weight: bold;
+            padding: 10px;
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>Keyboard Layout Detection Tests</h1>
+    <div id="results"></div>
+
+    <script type="module">
+        import { isKeyboardAdjacent } from './js/modules/textComparison/keyboardProximity.js';
+        
+        const resultsDiv = document.getElementById('results');
+        
+        // Test cases for different keyboard layouts
+        const testCases = [
+            {
+                layout: 'qwertz',
+                tests: [
+                    { char1: 'z', char2: 't', expected: true, description: 'z and t are adjacent on QWERTZ' },
+                    { char1: 'y', char2: 'z', expected: false, description: 'y and z are not adjacent on QWERTZ' }
+                ]
+            },
+            {
+                layout: 'qwerty',
+                tests: [
+                    { char1: 'y', char2: 't', expected: true, description: 'y and t are adjacent on QWERTY' },
+                    { char1: 'z', char2: 't', expected: false, description: 'z and t are not adjacent on QWERTY' }
+                ]
+            },
+            {
+                layout: 'azerty',
+                tests: [
+                    { char1: 'a', char2: 'z', expected: true, description: 'a and z are adjacent on AZERTY' },
+                    { char1: 'q', char2: 'w', expected: false, description: 'q and w are not adjacent on AZERTY' }
+                ]
+            },
+            {
+                layout: 'auto',
+                tests: [
+                    { char1: 'z', char2: 't', expected: true, description: 'z and t are adjacent on QWERTZ (auto-detect)' },
+                    { char1: 'y', char2: 't', expected: true, description: 'y and t are adjacent on QWERTY (auto-detect)' },
+                    { char1: 'a', char2: 'z', expected: true, description: 'a and z are adjacent on AZERTY (auto-detect)' },
+                    { char1: 'q', char2: 'p', expected: false, description: 'q and p are not adjacent on any layout' }
+                ]
+            }
+        ];
+
+        let passedCount = 0;
+        let failedCount = 0;
+        let html = '<h2>Test Results</h2>';
+
+        // Run tests for each layout
+        testCases.forEach(layoutTest => {
+            html += `<div class="test-group">
+                <h3>${layoutTest.layout.toUpperCase()} Layout Tests</h3>
+                <ul>`;
+            
+            layoutTest.tests.forEach(test => {
+                const result = isKeyboardAdjacent(test.char1, test.char2, layoutTest.layout);
+                const passed = result === test.expected;
+                
+                if (passed) {
+                    html += `<li class="passed">✓ PASS: ${test.description}</li>`;
+                    passedCount++;
+                } else {
+                    html += `<li class="failed">✗ FAIL: ${test.description} (Got: ${result})</li>`;
+                    failedCount++;
+                }
+            });
+            
+            html += '</ul></div>';
+        });
+
+        // Print summary
+        html += `<div class="summary">
+            Test Summary<br>
+            Total: ${passedCount + failedCount}, Passed: ${passedCount}, Failed: ${failedCount}<br>
+            ${failedCount === 0 ? '<span class="passed">ALL TESTS PASSED! ✓</span>' : 
+              `<span class="failed">${failedCount} TESTS FAILED! ✗</span>`}
+        </div>`;
+        
+        resultsDiv.innerHTML = html;
+    </script>
+</body>
+</html>

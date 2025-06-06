@@ -8,7 +8,20 @@ export const textComparisonConfig = {
     caseSensitive: false,       // Whether to consider case in matching
     strictPunctuation: false,   // Whether punctuation affects matching
     language: 'de',             // Default language (German)
-    showMisspellingDetails: true // Whether to show detailed feedback for misspellings
+    showMisspellingDetails: true, // Whether to show detailed feedback for misspellings
+    
+    // New features
+    useKeyboardProximity: true, // Whether to use keyboard proximity for similarity
+    useLengthBasedThresholds: true, // Whether to adjust thresholds based on word length
+    useGermanTypoPatterns: true, // Whether to detect common German typo patterns
+    
+    // Keyboard proximity settings
+    keyboardLayout: 'auto',     // Keyboard layout: 'qwertz', 'qwerty', 'azerty' or 'auto'
+    adjacentKeyCost: 0.8,       // Cost for adjacent key substitutions (lower = more similar)
+    
+    // Length-based threshold adjustments
+    maxLengthAdjustment: 0.1,   // Maximum threshold reduction based on length
+    lengthAdjustmentFactor: 0.01 // Adjustment factor per character
 };
 
 export const config = {

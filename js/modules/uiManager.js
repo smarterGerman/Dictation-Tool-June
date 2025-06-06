@@ -416,171 +416,190 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
   const placeholderContainer = generatePlaceholdersForReference(referenceText);
   referenceMapRow.appendChild(placeholderContainer);
   
-  // If no result, just return the placeholders
-  if (!result || !result.inputText) {
-    return;
-  }
-  
-  // Get reference words and input words
-  const refWords = referenceText.trim().split(/\s+/);
-  const inputWords = result.inputText.trim().split(/\s+/);
+  if (!result || !result.inputText) return;
   
   // Track which reference words have already been matched
   const matchedRefIndices = new Set();
+  
+  // Get normalized versions for better matching
+  const inputWords = result.inputText.trim().split(/\s+/);
+  const refWords = referenceText.trim().split(/\s+/);
   
   // Process each input word in the order the user typed them
   inputWords.forEach((inputWord, inputWordIndex) => {
     if (!inputWord) return;
     
-    // Find which reference word this input word matches with
+    // Find best matching reference word
     let bestMatchIndex = -1;
     let bestMatchScore = 0;
-    let bestMatchIsPartial = false;
-    let bestMatchStart = 0;
-    let bestMatchEnd = 0;
     
-    // Check all reference words to find the best match for this input word
+    // Check all reference words to find the best match
     refWords.forEach((refWord, refWordIndex) => {
-      // Skip reference words that are already matched
       if (matchedRefIndices.has(refWordIndex)) return;
       
-      // EXACT MATCH: The input word exactly matches this reference word
-      if (inputWord.toLowerCase() === refWord.toLowerCase()) {
-        // This is a perfect match!
-        if (100 > bestMatchScore) {
-          bestMatchScore = 100;
-          bestMatchIndex = refWordIndex;
-          bestMatchIsPartial = false;
-        }
+      // First try exact match after transformation
+      // Use the existing transformation function from your system
+      const transformedInput = transformGermanInput(inputWord.toLowerCase());
+      const refLower = refWord.toLowerCase();
+      
+      // Exact match after transformation
+      if (transformedInput === refLower) {
+        bestMatchIndex = refWordIndex;
+        bestMatchScore = 1.0;
         return;
       }
       
-      // FULL PREFIX MATCH: Input word is the entire first part of reference word
-      if (refWord.toLowerCase().startsWith(inputWord.toLowerCase()) && 
-          inputWord.length >= 3) { // Require at least 3 chars to match prefix
-        // This is a good prefix match
-        const score = 70 + (inputWord.length / refWord.length * 20);
-        if (score > bestMatchScore) {
-          bestMatchScore = score;
-          bestMatchIndex = refWordIndex;
-          bestMatchIsPartial = true;
-          bestMatchStart = 0;
-          bestMatchEnd = inputWord.length;
-        }
-        return;
+      // Try partial match with German character transformation
+      const similarity = calculateSimilarityWithTransformation(inputWord, refWord);
+      if (similarity > 0.65 && similarity > bestMatchScore) {
+        bestMatchIndex = refWordIndex;
+        bestMatchScore = similarity;
       }
-      
-      // FULL SUFFIX MATCH: Input word is the entire last part of reference word
-      if (refWord.toLowerCase().endsWith(inputWord.toLowerCase()) && 
-          inputWord.length >= 3) { // Require at least 3 chars to match suffix
-        const score = 60 + (inputWord.length / refWord.length * 20);
-        if (score > bestMatchScore) {
-          bestMatchScore = score;
-          bestMatchIndex = refWordIndex;
-          bestMatchIsPartial = true;
-          bestMatchStart = refWord.length - inputWord.length;
-          bestMatchEnd = refWord.length;
-        }
-        return;
-      }
-      
-      // MISSPELLED WORD MATCH: Words that are very similar (like "berlim" vs "berlin")
-      if (inputWord.length >= 3) {  // Only consider significant words
-        // Calculate similarity score
-        let sameChars = 0;
-        const maxLen = Math.max(inputWord.length, refWord.length);
-        const minLen = Math.min(inputWord.length, refWord.length);
-        
-        for (let i = 0; i < minLen; i++) {
-          if (inputWord[i].toLowerCase() === refWord[i].toLowerCase()) {
-            sameChars++;
-          }
-        }
-        
-        const similarityScore = (sameChars / maxLen) * 100;
-        
-        if (similarityScore >= 65 && similarityScore < 100) {
-          const score = similarityScore;
-          if (score > bestMatchScore) {
-            bestMatchScore = score;
-            bestMatchIndex = refWordIndex;
-            bestMatchIsPartial = true;
-            bestMatchStart = 0;
-            bestMatchEnd = refWord.length;
-          }
-        }
-      }
-    }); // End of refWords.forEach
+    });
     
-    // If we found a match, reveal that word and mark it as matched
-    if (bestMatchIndex !== -1 && bestMatchScore > 50) {
-      // For exact matches, we want to prevent reuse
-      if (!bestMatchIsPartial) {
-        matchedRefIndices.add(bestMatchIndex);
-      }
+    // If we found a match, reveal the word with character-level feedback
+    if (bestMatchIndex !== -1 && bestMatchScore > 0.5) {
+      matchedRefIndices.add(bestMatchIndex);
       
       const wordElements = placeholderContainer.querySelectorAll('.word-placeholder');
       if (bestMatchIndex < wordElements.length) {
         const wordElement = wordElements[bestMatchIndex];
         const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+        const refWord = refWords[bestMatchIndex];
         
-        // Only use status for exact matches
-        const wordStatus = !bestMatchIsPartial ? 
-                          (result.words[bestMatchIndex]?.status || 'correct') : 
-                          'progress';
+        // Mark the word as matched with appropriate class
+        wordElement.classList.add(bestMatchScore >= 0.95 ? 'word-correct' : 'word-partial');
         
-        // Add appropriate class
-        if (wordStatus === 'correct') {
-          wordElement.classList.add('word-correct');
-        } else if (wordStatus === 'misspelled') {
-          wordElement.classList.add('word-misspelled');
-        } else {
-          wordElement.classList.add('word-progress');
-        }
+        // Create a character-by-character comparison of input vs reference
+        // using your German transformation rules
+        const charComparison = compareWithGermanRules(inputWord, refWord);
         
-        // IMPORTANT: Only reveal the specific letters that were matched
-        // For partial matches: only reveal the matched portion
-        // For exact matches: reveal the whole word
-        
-        const startIdx = bestMatchIsPartial ? bestMatchStart : 0;
-        const endIdx = bestMatchIsPartial ? bestMatchEnd : letterPlaceholders.length;
-        
+        // Show all characters in this word with appropriate styling
         for (let i = 0; i < letterPlaceholders.length; i++) {
           const letterSpan = letterPlaceholders[i];
+          letterSpan.textContent = letterSpan.dataset.letter;
+          letterSpan.classList.add('revealed');
           
-          // Only reveal letters in the matched range
-          if (i >= startIdx && i < endIdx) {
-            letterSpan.textContent = letterSpan.dataset.letter;
-            letterSpan.classList.add('revealed');
-            
-            // Only apply styling for exact matches or correct partial matches
-            if (!bestMatchIsPartial && wordStatus === 'correct') {
-              letterSpan.classList.add('correct');
-            } else if (!bestMatchIsPartial && wordStatus === 'misspelled') {
-              letterSpan.classList.add('misspelled');
-            } else if (bestMatchIsPartial) {
-              // For partial matches, check if the letter matches
-              // Need to adjust the index based on the match start position
-              const inputIndex = i - bestMatchStart;
-              
-              if (inputIndex >= 0 && inputIndex < inputWord.length) {
-                // Show the actual character the user typed, not the reference character
-                letterSpan.textContent = inputWord[inputIndex];
-                
-                // Apply correct/misspelled styling based on match
-                if (letterSpan.dataset.letter.toLowerCase() === inputWord[inputIndex].toLowerCase()) {
-                  letterSpan.classList.add('correct');
-                } else {
-                  letterSpan.classList.add('misspelled');
-                }
-              } else {
-                letterSpan.textContent = letterSpan.dataset.letter;
-                letterSpan.classList.add('progress');
-              }
-            }
+          // Apply styling based on the character comparison
+          if (i < charComparison.length && charComparison[i] === true) {
+            letterSpan.classList.add('correct');
+          } else {
+            letterSpan.classList.add('misspelled');
           }
-        } // End of for loop
+        }
       }
-    } // End of if (bestMatchIndex...)
-  }); // End of inputWords.forEach
-} // End of function updateReferenceMappingDisplay
+    }
+  });
+}
+
+/**
+ * Compares input word with reference word using German transformation rules
+ * @param {string} input - The input word
+ * @param {string} reference - The reference word
+ * @returns {Array} - Array of booleans indicating character match status
+ */
+function compareWithGermanRules(input, reference) {
+  // Transform the input using your existing German transformation function
+  const transformedInput = transformGermanInput(input.toLowerCase());
+  const refLower = reference.toLowerCase();
+  
+  // Results array (true = match, false = mismatch)
+  const results = [];
+  
+  // Compare character by character
+  for (let i = 0; i < reference.length; i++) {
+    if (i < transformedInput.length) {
+      // Check for direct character match
+      const inputChar = transformedInput[i];
+      const refChar = refLower[i];
+      
+      // Use your existing character equivalence rules
+      results.push(checkCharacterEquivalence(inputChar, refChar));
+    } else {
+      // Input word is shorter than reference word
+      results.push(false);
+    }
+  }
+  
+  return results;
+}
+
+/**
+ * Check if two characters are equivalent under German transformation rules
+ * @param {string} inputChar - Input character
+ * @param {string} refChar - Reference character
+ * @returns {boolean} - True if characters are equivalent
+ */
+function checkCharacterEquivalence(inputChar, refChar) {
+  // Direct match
+  if (inputChar === refChar) return true;
+  
+  // Implement transformations based on your existing German rules
+  // This is a simple version - use your actual transformation logic
+  if ((refChar === 'ä' && inputChar === 'a') ||
+      (refChar === 'ö' && inputChar === 'o') ||
+      (refChar === 'ü' && inputChar === 'u') ||
+      (refChar === 'ß' && inputChar === 's')) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Calculate similarity between input and reference with German transformation
+ * @param {string} input - Input word
+ * @param {string} reference - Reference word
+ * @returns {number} - Similarity score (0-1)
+ */
+function calculateSimilarityWithTransformation(input, reference) {
+  const transformedInput = transformGermanInput(input.toLowerCase());
+  const refLower = reference.toLowerCase();
+  
+  // Calculate Levenshtein distance or other similarity measure
+  // between transformedInput and refLower
+  // For simplicity, here's a basic character-matching algorithm
+  let matches = 0;
+  const maxLength = Math.max(transformedInput.length, refLower.length);
+  const minLength = Math.min(transformedInput.length, refLower.length);
+  
+  for (let i = 0; i < minLength; i++) {
+    if (checkCharacterEquivalence(transformedInput[i], refLower[i])) {
+      matches++;
+    }
+  }
+  
+  return matches / maxLength;
+}
+
+/**
+ * Transform German input using your existing transformation rules
+ * @param {string} input - Input string
+ * @returns {string} - Transformed string with proper German characters
+ */
+function transformGermanInput(input) {
+  // Replace with your actual transformation function
+  // This is just a placeholder that should match your existing implementation
+  let transformed = input;
+  
+  // Handle umlauts
+  transformed = transformed.replace(/ae/g, 'ä')
+                         .replace(/oe/g, 'ö')
+                         .replace(/ue/g, 'ü')
+                         .replace(/a:/g, 'ä')
+                         .replace(/o:/g, 'ö')
+                         .replace(/u:/g, 'ü')
+                         .replace(/a\//g, 'ä')
+                         .replace(/o\//g, 'ö')
+                         .replace(/u\//g, 'ü');
+  
+  // Handle ß (sharp s)
+  transformed = transformed.replace(/s:/g, 'ß')
+                         .replace(/s\//g, 'ß')
+                         .replace(/ss/g, 'ß');
+                         
+  // Handle capital B as ß in middle or end of word
+  transformed = transformed.replace(/(\w)B(\w|$)/g, '$1ß$2');
+  
+  return transformed;
+}

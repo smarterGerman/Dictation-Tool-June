@@ -64,7 +64,9 @@ export function transformSpecialCharacters(input) {
  * @returns {string} - Transformed text
  */
 function transformLetterE(text) {
-    // Use a more reliable method with simple single replacements
+    if (!text) return text;
+    
+    // Simple direct replacement without complex regex conditions
     let result = text;
     result = result.replace(/ae/g, 'ä');
     result = result.replace(/oe/g, 'ö');
@@ -126,6 +128,17 @@ function transformEszett(text) {
     
     // Pattern 3: Replace capital B in the middle/end of a word with "ß"
     result = result.replace(/([a-zäöü])B($|[a-zäöü])/g, '$1ß$2');
+    
+    // Pattern 4: Replace "straBe" with "straße" (and other common words with ß)
+    result = result.replace(/straBe/g, 'straße');
+    result = result.replace(/StraBe/g, 'Straße');
+    result = result.replace(/STRABE/g, 'STRAßE');
+    
+    // You can add more common German words with ß here as needed
+    result = result.replace(/groBe/g, 'große');
+    result = result.replace(/GroBe/g, 'Große');
+    result = result.replace(/weiBe/g, 'weiße');
+    result = result.replace(/WeiBe/g, 'Weiße');
     
     return result;
 }

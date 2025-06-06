@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>German Character Display Fix Test</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/text-comparison-advanced.css">
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-container {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h2 {
+            margin-top: 30px;
+            color: #2c3e50;
+        }
+        button {
+            padding: 8px 15px;
+            margin: 10px 0;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        input {
+            padding: 8px;
+            width: 80%;
+            margin-right: 10px;
+        }
+        select {
+            padding: 8px;
+            margin: 10px 0;
+        }
+        .debug-box {
+            background: #f8f8f8;
+            border-left: 5px solid #888;
+            padding: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+            overflow: auto;
+            max-height: 300px;
+        }
+        .test-case {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        .test-description {
+            font-weight: bold;
+        }
+        .fixed-label {
+            background-color: #4CAF50;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin-left: 5px;
+            font-size: 12px;
+        }
+        .issue-label {
+            background-color: #e74c3c;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin-left: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>German Character Display Fix Test</h1>
+    <p>This page tests fixes for German character transformations and display issues.</p>
+    
+    <div class="test-container">
+        <h2>1. Umlaut Transformation Test <span class="fixed-label">FIXED</span></h2>
+        <p>Issue: Umlauts like "oe" → "ö" are transformed correctly but not displaying properly.</p>
+        
+        <div class="test-case">
+            <p class="test-description">Test 1: "oe" → "ö" transformation display</p>
+            <div>
+                <p>Reference Word: <strong>schöner</strong></p>
+                <p>Input: <input type="text" id="testInput1" value="schoener"></p>
+                <button id="testButton1">Test Transformation</button>
+                <button class="clearButton" data-target="displayContainer1">Clear</button>
+            </div>
+            <h3>Display:</h3>
+            <div id="displayContainer1" class="display-container">
+                <div id="referenceMapRow1" class="reference-map-row"></div>
+                <div class="raw-input-row">
+                    <div id="rawInputDisplay1" class="raw-input-display"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-case">
+            <p class="test-description">Test 2: "ae" → "ä" transformation display</p>
+            <div>
+                <p>Reference Word: <strong>Mädchen</strong></p>
+                <p>Input: <input type="text" id="testInput2" value="maedchen"></p>
+                <button id="testButton2">Test Transformation</button>
+                <button class="clearButton" data-target="displayContainer2">Clear</button>
+            </div>
+            <h3>Display:</h3>
+            <div id="displayContainer2" class="display-container">
+                <div id="referenceMapRow2" class="reference-map-row"></div>
+                <div class="raw-input-row">
+                    <div id="rawInputDisplay2" class="raw-input-display"></div>
+                </div>
+            </div>
+        </div>
+        
+        <h2>2. "sh" vs "sch" Pattern Test <span class="fixed-label">FIXED</span></h2>
+        <p>Issue: The 'h' in "sh" is not showing when typed at the beginning of words like "shoener".</p>
+        
+        <div class="test-case">
+            <p class="test-description">Test 3: "sh" vs "sch" display</p>
+            <div>
+                <p>Reference Word: <strong>schön</strong></p>
+                <p>Input: <input type="text" id="testInput3" value="shoen"></p>
+                <button id="testButton3">Test Transformation</button>
+                <button class="clearButton" data-target="displayContainer3">Clear</button>
+            </div>
+            <h3>Display:</h3>
+            <div id="displayContainer3" class="display-container">
+                <div id="referenceMapRow3" class="reference-map-row"></div>
+                <div class="raw-input-row">
+                    <div id="rawInputDisplay3" class="raw-input-display"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-case">
+            <p class="test-description">Test 4: Complex case with both issues</p>
+            <div>
+                <p>Reference Word: <strong>schöne</strong></p>
+                <p>Input: <input type="text" id="testInput4" value="shoene"></p>
+                <button id="testButton4">Test Transformation</button>
+                <button class="clearButton" data-target="displayContainer4">Clear</button>
+            </div>
+            <h3>Display:</h3>
+            <div id="displayContainer4" class="display-container">
+                <div id="referenceMapRow4" class="reference-map-row"></div>
+                <div class="raw-input-row">
+                    <div id="rawInputDisplay4" class="raw-input-display"></div>
+                </div>
+            </div>
+        </div>
+        
+        <h3>Debug Output:</h3>
+        <div id="debugOutput" class="debug-box"></div>
+    </div>
+
+    <script type="module">
+        import { updateRawInputDisplay, updateReferenceMappingDisplay, generatePlaceholdersForReference } from './js/modules/uiManager.js';
+        import { processInputWithCharacterTracking } from './js/modules/textComparison/index.js';
+        import { transformSpecialCharacters } from './js/modules/textComparison/textNormalizer.js';
+        
+        // Debug log interception
+        const originalConsoleLog = console.log;
+        let debugLogs = [];
+        
+        console.log = function() {
+            debugLogs.push(Array.from(arguments).join(' '));
+            originalConsoleLog.apply(console, arguments);
+            updateDebugOutput();
+        };
+        
+        function updateDebugOutput() {
+            document.getElementById('debugOutput').textContent = debugLogs.join('\n');
+        }
+        
+        // Test cases
+        const testCases = [
+            {
+                id: 1,
+                reference: "schöner",
+                defaultInput: "schoener",
+                description: "Testing 'oe' → 'ö' transformation"
+            },
+            {
+                id: 2,
+                reference: "Mädchen",
+                defaultInput: "maedchen",
+                description: "Testing 'ae' → 'ä' transformation"
+            },
+            {
+                id: 3,
+                reference: "schön",
+                defaultInput: "shoen",
+                description: "Testing 'sh' vs 'sch' pattern"
+            },
+            {
+                id: 4,
+                reference: "schöne",
+                defaultInput: "shoene",
+                description: "Testing both issues combined"
+            }
+        ];
+        
+        // Initialize all test cases
+        testCases.forEach(testCase => {
+            const id = testCase.id;
+            const referenceMapRow = document.getElementById(`referenceMapRow${id}`);
+            const placeholderContainer = generatePlaceholdersForReference(testCase.reference);
+            referenceMapRow.appendChild(placeholderContainer);
+            
+            const input = document.getElementById(`testInput${id}`);
+            input.value = testCase.defaultInput;
+            
+            const testButton = document.getElementById(`testButton${id}`);
+            testButton.addEventListener('click', () => {
+                const inputText = input.value;
+                console.log(`[Test ${id}] Testing: "${inputText}" against reference: "${testCase.reference}"`);
+                
+                // Update raw display
+                const rawInputDisplay = document.getElementById(`rawInputDisplay${id}`);
+                updateRawInputDisplay(rawInputDisplay, inputText);
+                
+                // Process the input
+                const result = processInputWithCharacterTracking(testCase.reference, inputText);
+                console.log(`[Test ${id}] Result:`, JSON.stringify(result, null, 2));
+                
+                // Update the reference mapping display
+                updateReferenceMappingDisplay(referenceMapRow, result, testCase.reference);
+            });
+        });
+        
+        // Handle clear buttons
+        document.querySelectorAll('.clearButton').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.getAttribute('data-target');
+                const container = document.getElementById(targetId);
+                
+                // Get the test number from the container ID
+                const testNumber = targetId.replace('displayContainer', '');
+                
+                // Clear and reinitialize the reference mapping
+                const referenceMapRow = document.getElementById(`referenceMapRow${testNumber}`);
+                referenceMapRow.innerHTML = '';
+                
+                // Find the corresponding test case
+                const testCase = testCases.find(tc => tc.id === parseInt(testNumber));
+                
+                // Regenerate the placeholders
+                if (testCase) {
+                    const placeholderContainer = generatePlaceholdersForReference(testCase.reference);
+                    referenceMapRow.appendChild(placeholderContainer);
+                }
+                
+                // Clear the raw input display
+                document.getElementById(`rawInputDisplay${testNumber}`).textContent = '';
+            });
+        });
+        
+        // Run the first test automatically
+        document.getElementById('testButton1').click();
+        
+        console.log('Test page initialized. Ready to check fixes for German character display issues.');
+    </script>
+</body>
+</html>

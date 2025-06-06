@@ -423,3 +423,14 @@ function setupInputField(options = {}) {
         }, 100);
     }
 }
+/**
+ * Handle user input events
+ * @param {Event} event - Input event
+ */
+function handleUserInput(event) {
+  const userInput = inputField.value;
+  const result = processInput(userInput, referenceText); // CORRECT ORDER!
+  
+  // Update UI with results
+  updateDisplay(result);
+}

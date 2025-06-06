@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>German Display Fix Test</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/text-comparison-advanced.css">
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-container {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h2 {
+            margin-top: 30px;
+        }
+        button {
+            padding: 8px 15px;
+            margin: 10px 0;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .debug-box {
+            background: #f8f8f8;
+            border-left: 5px solid #888;
+            padding: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+            overflow: auto;
+            max-height: 300px;
+        }
+        .test-case {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>German Characters Display Fix Test</h1>
+    
+    <div class="test-container">
+        <h2>Test Case: "shoener" vs "schöner"</h2>
+        <p>This test checks that "s" and "h" display correctly as green and the missing "c" shows as underscore.</p>
+        
+        <div class="test-case">
+            <div>
+                <label for="reference">Reference: </label>
+                <input type="text" id="reference" value="schöner" readonly>
+            </div>
+            <div>
+                <label for="input">Input: </label>
+                <input type="text" id="input" value="shoener">
+                <button id="testBtn">Test</button>
+            </div>
+            
+            <div>
+                <p><strong>Display:</strong></p>
+                <div id="referenceMapRow" class="reference-map-row"></div>
+                <div class="raw-input-row">
+                    <div id="rawInputDisplay" class="raw-input-display"></div>
+                </div>
+            </div>
+        </div>
+        
+        <h2>Log Output:</h2>
+        <div id="debugOutput" class="debug-box"></div>
+    </div>
+
+    <script type="module">
+        import { updateRawInputDisplay, updateReferenceMappingDisplay, generatePlaceholdersForReference } from './js/modules/uiManager.js';
+        import { processInputWithCharacterTracking } from './js/modules/textComparison/index.js';
+        
+        // Capture console.log for debugging
+        const originalConsoleLog = console.log;
+        const logs = [];
+        
+        console.log = function(...args) {
+            logs.push(args.join(' '));
+            originalConsoleLog.apply(console, args);
+            document.getElementById('debugOutput').textContent = logs.join('\n');
+        };
+        
+        // Initialize the test
+        const referenceInput = document.getElementById('reference');
+        const userInput = document.getElementById('input');
+        const testBtn = document.getElementById('testBtn');
+        const referenceMapRow = document.getElementById('referenceMapRow');
+        const rawInputDisplay = document.getElementById('rawInputDisplay');
+        
+        // Set up initial display
+        let placeholderContainer = generatePlaceholdersForReference(referenceInput.value);
+        referenceMapRow.appendChild(placeholderContainer);
+        
+        // Test button handler
+        testBtn.addEventListener('click', () => {
+            // Clear previous display
+            logs.length = 0;
+            document.getElementById('debugOutput').textContent = '';
+            referenceMapRow.innerHTML = '';
+            rawInputDisplay.textContent = '';
+            
+            // Get values
+            const reference = referenceInput.value;
+            const input = userInput.value;
+            
+            console.log('Testing:', input, 'against', reference);
+            
+            // Generate new placeholders
+            placeholderContainer = generatePlaceholdersForReference(reference);
+            referenceMapRow.appendChild(placeholderContainer);
+            
+            // Update raw input display
+            updateRawInputDisplay(rawInputDisplay, input);
+            
+            // Process the input and update the display
+            const result = processInputWithCharacterTracking(reference, input);
+            updateReferenceMappingDisplay(referenceMapRow, result, reference);
+            
+            console.log('Test complete');
+        });
+        
+        // Run the test once on load
+        testBtn.click();
+    </script>
+</body>
+</html>

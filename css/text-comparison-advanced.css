@@ -94,50 +94,38 @@
   animation: misspelledShake 0.2s ease-in-out;
 }
 
-.letter-placeholder.missing-char {
-  color: #f39c12; /* Orange for missing characters */
-  position: relative;
-}
-
-.letter-placeholder.missing-char {
-  color: #e0e0e0; /* Light gray color for missing characters */
-  text-decoration: underline dotted #f39c12; /* Subtle dotted underline to indicate something's missing */
-  position: relative;
-  display: inline-block;
-  width: 10px; /* Consistent width for placeholders */
-  text-align: center;
-}
-
-/* Style for missing character placeholder without revealing what's missing */
-.letter-placeholder.missing-between {
-  position: relative;
-  margin: 0 2px; /* Equal spacing on both sides */
-  display: inline-block;
-  text-align: center;
-  width: 10px; /* Consistent width */
-}
-
-/* Style for umlaut characters (both parts should be visible) */
+/* Style for umlaut characters (only first part should be visible) */
 .letter-placeholder.umlaut-part {
-  margin-left: -2px; /* Pull the second character ('e') closer to the first one */
-  opacity: 0.9; /* Make it slightly less prominent but still visible */
+  margin-left: 0;
+  opacity: 1;
+  position: relative;
 }
 
-/* First part of umlaut should inherit color from parent (correct or incorrect) */
 .letter-placeholder.umlaut-first-part {
   position: relative;
 }
 
-/* Second part of umlaut should display properly but as a combined character */
+/* Hide second part of umlaut transformations */
 .letter-placeholder.umlaut-second-part {
-  margin-left: -4px; /* Pull closer to first character to appear as single umlaut */
-  position: relative;
-  display: inline-block !important; /* Force display */
+  display: none !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+  position: absolute !important;
+  visibility: hidden !important;
 }
 
-/* Make sure correct characters always show as green regardless of parent */
-.letter-placeholder.correct {
-  color: #2ecc71 !important; /* Ensure correct letters are always green */
+/* Style for missing character placeholder without revealing what's missing */
+.letter-placeholder.missing-between,
+.letter-placeholder.missing-char {
+  position: relative;
+  margin: 0 5px;  /* Increased margin for better spacing */
+  display: inline-block;
+  text-align: center;
+  width: 10px;
+  color: #e74c3c !important; /* Red color for missing characters */
+  text-decoration: underline dotted #e74c3c;
 }
 
 /* Special styles for the 'sh' pattern to ensure 'h' is visible */
@@ -147,14 +135,8 @@
 }
 
 .letter-placeholder.h-in-sh {
-  font-weight: bold; /* Make 'h' more visible */
-}
-
-.letter-placeholder.sh-missing-c {
-  margin: 0 -2px; /* Make it more compact */
-  width: 5px;
-  display: inline-block;
-  color: #e0e0e0;
+  font-weight: bold;
+  color: #2ecc71 !important; /* Green for correct letters */
 }
 
 /* Animation for missing character hint */

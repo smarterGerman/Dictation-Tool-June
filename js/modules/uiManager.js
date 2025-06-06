@@ -529,6 +529,11 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
                   if (i > 0 && originalToTransformedMap['umlaut_' + (i-1)]) {
                     // This is the 'e' in 'oe'
                     letterSpan.classList.add('umlaut-part', 'umlaut-second-part');
+                    // Make sure display:none is applied correctly
+                    letterSpan.style.display = 'none';
+                    letterSpan.style.width = '0';
+                    letterSpan.style.opacity = '0';
+                    letterSpan.textContent = '';
                     console.log('[DEBUG] This is the second part of an umlaut:', inputWord[i]);
                     
                     // For the second part, make parent's correctness apply to this element
@@ -545,11 +550,33 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
                     if (i+1 < inputWord.length) {
                       // Find which umlaut this is
                       const twoChars = inputWord.substring(i, i+2).toLowerCase();
-                      if (twoChars === 'oe') letterSpan.textContent = 'ö';
-                      else if (twoChars === 'ae') letterSpan.textContent = 'ä';
-                      else if (twoChars === 'ue') letterSpan.textContent = 'ü';
+                      if (twoChars === 'oe') {
+                        letterSpan.textContent = 'ö';
+                        letterSpan.setAttribute('data-original-char', 'ö');
+                      }
+                      else if (twoChars === 'ae') {
+                        letterSpan.textContent = 'ä';
+                        letterSpan.setAttribute('data-original-char', 'ä');
+                      }
+                      else if (twoChars === 'ue') {
+                        letterSpan.textContent = 'ü';
+                        letterSpan.setAttribute('data-original-char', 'ü');
+                      }
                     }
                   }
+                }
+                
+                // Hide the second character of the umlaut pair (the 'e' in 'oe')
+                if (i > 0 && originalToTransformedMap['umlaut_' + (i-1)]) {
+                  // Make this element completely invisible and take no space
+                  letterSpan.style.display = 'none'; 
+                  letterSpan.innerHTML = ''; 
+                  letterSpan.style.width = '0';
+                  letterSpan.style.margin = '0';
+                  letterSpan.style.padding = '0';
+                  letterSpan.style.position = 'absolute';
+                  letterSpan.style.visibility = 'hidden';
+                  letterSpan.classList.add('hidden', 'umlaut-second-part'); 
                 }
                 
                 // Apply appropriate class based on character match
@@ -594,6 +621,9 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
                 // Keep the underscore to indicate something's missing
                 letterSpan.textContent = '_';
                 
+                // Make sure it's red to indicate it's missing
+                letterSpan.style.color = '#e74c3c';
+                
                 // Ensure surrounding characters ('s' and 'h') are marked as correct
                 if (insertPosition > 0 && insertPosition + 1 < letterPlaceholders.length) {
                   console.log('[DEBUG] Ensuring surrounding characters are properly marked');
@@ -617,6 +647,8 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
                 // Standard missing character handling - indicate missing but don't reveal
                 letterSpan.classList.add('missing-char');
                 letterSpan.textContent = '_';
+                // Ensure the color is red
+                letterSpan.style.color = '#e74c3c';
               }
             }
           }
@@ -961,24 +993,41 @@ function handleShPattern(wordElement, inputWord, transformedWord, referenceWord)
       // First letter is 's'
       const sLetter = letterPlaceholders[0];
       sLetter.classList.add('correct');
+      sLetter.style.color = '#2ecc71'; // Ensure green color
+      sLetter.textContent = 's'; // Make sure 's' is visible
       
-      // Look for the 'h' letter - might be at position 1 or 2 depending on underscore placement
-      let hLetter = null;
+      // Find or create a placeholder for the missing 'c'
+      let cPlaceholder = null;
+      let hPosition = 1; // Default position for 'h'
       
-      // Check if there's an underscore between s and h
-      if (letterPlaceholders[1] && letterPlaceholders[1].textContent === '_') {
-        // The underscore is correctly placed, just make sure h is marked correctly
-        if (letterPlaceholders[2] && letterPlaceholders[2].textContent.toLowerCase() === 'h') {
-          hLetter = letterPlaceholders[2];
+      // Create a placeholder for 'c' if it doesn't exist
+      cPlaceholder = document.createElement('span');
+      cPlaceholder.className = 'letter-placeholder missing-between';
+      cPlaceholder.textContent = '_';
+      cPlaceholder.style.color = '#e74c3c'; // Red color
+      cPlaceholder.style.margin = '0 5px'; // Better spacing
+      
+      // Check if we need to insert the missing character placeholder
+      if (letterPlaceholders.length > 1) {
+        // Get the current second letter (should be 'h')
+        const secondChar = letterPlaceholders[1];
+        
+        // Insert the missing 'c' placeholder before the 'h'
+        sLetter.parentNode.insertBefore(cPlaceholder, secondChar);
+        hPosition = 2; // 'h' is now at position 2
+        
+        // Make sure 'h' is visible and green
+        if (letterPlaceholders[hPosition-1]) { // Adjust for 0-based indexing
+          const hLetter = letterPlaceholders[hPosition-1];
+          hLetter.textContent = 'h'; // Force 'h' to be visible
+          hLetter.classList.add('correct');
+          hLetter.style.color = '#2ecc71'; // Ensure green color
+          hLetter.classList.remove('missing-char', 'missing-between'); // Remove any missing-char class
+          console.log('[DEBUG] Made h character visible in sh pattern');
         }
-      } else if (letterPlaceholders[1] && letterPlaceholders[1].textContent.toLowerCase() === 'h') {
-        hLetter = letterPlaceholders[1];
-      }
-      
-      // Mark the h as correct if we found it
-      if (hLetter) {
-        hLetter.classList.add('correct');
-        console.log('[DEBUG] Marked h character as correct in sh pattern');
+      } else {
+        // If there's only one letter, append the placeholder after 's'
+        sLetter.parentNode.appendChild(cPlaceholder);
       }
       
       console.log('[DEBUG] Finished applying special "sh" pattern handling');
@@ -993,7 +1042,8 @@ function findInsertPositionForMissingChar(missingCharPos, refWord, matchedPositi
   if (missingCharPos === 1 && refWord[missingCharPos] === 'c' && 
       refWord.startsWith('sch') && refWord.length > 3) {
     console.log('[DEBUG] Special case: missing character in "sch" pattern');
-    return 1; // Insert between 's' and 'h'
+    // Always insert between 's' and 'h' for consistency
+    return 1; 
   }
   
   // Find the closest matched position before this missing character

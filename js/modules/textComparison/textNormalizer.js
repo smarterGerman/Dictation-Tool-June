@@ -36,19 +36,32 @@ export function transformSpecialCharacters(input) {
     try {
         // Try-catch to handle any unexpected errors in the transformation process
         let result = input;
+        let needsTransformation = false;
+        
+        // Check if this word needs special character transformation
+        needsTransformation = /[aouAOU][e:\/]|s[s:\/]|B[a-zäöüß]|[a-zäöüß]B|sh/.test(input);
+        
+        if (!needsTransformation) {
+            // Skip unnecessary processing and logging for words that don't need transformation
+            return input;
+        }
         
         // Apply transformations in a specific order for best results
         // 1. First transform letter+e patterns
         result = transformLetterE(result);
+        console.log('After transformLetterE:', result);
         
         // 2. Then transform colon patterns
         result = transformColon(result);
+        console.log('After transformColon:', result);
         
         // 3. Then transform slash patterns
         result = transformSlash(result);
+        console.log('After transformSlash:', result);
         
         // 4. Finally transform eszett
         result = transformEszett(result);
+        console.log('After transformEszett:', result);
         
         return result;
     } catch (err) {
@@ -66,11 +79,20 @@ export function transformSpecialCharacters(input) {
 function transformLetterE(text) {
     if (!text) return text;
     
-    // Simple direct replacement without complex regex conditions
+    console.log('ℹ️ transformLetterE input:', text);
+    
+    // Log intermediate transformations:
     let result = text;
+    
     result = result.replace(/ae/g, 'ä');
+    console.log('After ae→ä:', result);
+    
     result = result.replace(/oe/g, 'ö');
+    console.log('After oe→ö:', result); 
+    
     result = result.replace(/ue/g, 'ü');
+    console.log('After ue→ü:', result);
+    
     result = result.replace(/Ae/g, 'Ä');
     result = result.replace(/Oe/g, 'Ö');
     result = result.replace(/Ue/g, 'Ü');

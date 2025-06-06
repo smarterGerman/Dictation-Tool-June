@@ -1,1 +1,7 @@
 .DS_Store
+.OLDFILES/textUtils.js
+.OLDFILES/DictationTool.jsx
+.OLDFILES/DictationTool.css
+.OLDFILES/dictationMatcher.js
+.OLDFILES/DictationFeedback.jsx
+.OLDFILES/dictation-matching-system.md

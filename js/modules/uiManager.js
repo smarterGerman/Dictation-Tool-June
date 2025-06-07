@@ -458,11 +458,27 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
       const wordElements = placeholderContainer.querySelectorAll('.word-placeholder');
       if (bestMatchIndex < wordElements.length) {
         const wordElement = wordElements[bestMatchIndex];
-        const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+        let letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
         const refWord = refWords[bestMatchIndex].toLowerCase();
+        // Only declare transformedInputWord once
+        let transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
+
+        // --- FIX: Ensure enough placeholders for all input characters ---
+        if (inputWord.length > letterPlaceholders.length) {
+          for (let i = letterPlaceholders.length; i < inputWord.length; i++) {
+            const newPlaceholder = document.createElement('span');
+            newPlaceholder.className = 'letter-placeholder';
+            newPlaceholder.textContent = '_';
+            newPlaceholder.dataset.position = i.toString();
+            newPlaceholder.dataset.letter = inputWord[i] || '';
+            wordElement.appendChild(newPlaceholder);
+          }
+          // Refresh NodeList after appending
+          letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+        }
         
         // Transform the entire input word once
-        const transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
+        transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
         
         console.log('[DEBUG] Word comparison:', inputWord, '→', transformedInputWord, 'vs', refWord);
         
@@ -980,58 +996,65 @@ function computeLongestCommonSubsequence(str1, str2) {
  * @param {string} referenceWord - The correct reference word (e.g., "schöner")
  */
 function handleShPattern(wordElement, inputWord, transformedWord, referenceWord) {
-  if (!wordElement || !inputWord || !transformedWord || !referenceWord) return;
+  if (!wordElement || !inputWord || !transformedWord || !referenceWord) {
+    console.warn('[WARNING] Missing parameters in handleShPattern');
+    return;
+  }
   
   // Check if this is an 'sh' vs 'sch' pattern
   if (transformedWord.startsWith('sh') && referenceWord.startsWith('sch')) {
     console.log('[DEBUG] Applying special UI handling for "sh" vs "sch" pattern');
     
     const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-    
-    // Make sure 's' and 'h' are correctly marked
-    if (letterPlaceholders.length >= 2) {
-      // First letter is 's'
-      const sLetter = letterPlaceholders[0];
-      sLetter.classList.add('correct');
-      sLetter.style.color = '#2ecc71'; // Ensure green color
-      sLetter.textContent = 's'; // Make sure 's' is visible
-      
-      // Find or create a placeholder for the missing 'c'
-      let cPlaceholder = null;
-      let hPosition = 1; // Default position for 'h'
-      
-      // Create a placeholder for 'c' if it doesn't exist
-      cPlaceholder = document.createElement('span');
-      cPlaceholder.className = 'letter-placeholder missing-between';
-      cPlaceholder.textContent = '_';
-      cPlaceholder.style.color = '#e74c3c'; // Red color
-      cPlaceholder.style.margin = '0 5px'; // Better spacing
-      
-      // Check if we need to insert the missing character placeholder
-      if (letterPlaceholders.length > 1) {
-        // Get the current second letter (should be 'h')
-        const secondChar = letterPlaceholders[1];
-        
-        // Insert the missing 'c' placeholder before the 'h'
-        sLetter.parentNode.insertBefore(cPlaceholder, secondChar);
-        hPosition = 2; // 'h' is now at position 2
-        
-        // Make sure 'h' is visible and green
-        if (letterPlaceholders[hPosition-1]) { // Adjust for 0-based indexing
-          const hLetter = letterPlaceholders[hPosition-1];
-          hLetter.textContent = 'h'; // Force 'h' to be visible
-          hLetter.classList.add('correct');
-          hLetter.style.color = '#2ecc71'; // Ensure green color
-          hLetter.classList.remove('missing-char', 'missing-between'); // Remove any missing-char class
-          console.log('[DEBUG] Made h character visible in sh pattern');
-        }
-      } else {
-        // If there's only one letter, append the placeholder after 's'
-        sLetter.parentNode.appendChild(cPlaceholder);
-      }
-      
-      console.log('[DEBUG] Finished applying special "sh" pattern handling');
+    if (letterPlaceholders.length < 2) {
+      console.warn('[WARNING] Not enough letter placeholders for sh pattern');
+      return;
     }
+    
+    // First letter is 's' - ensure it's marked correct
+    const sLetter = letterPlaceholders[0];
+    sLetter.classList.add('correct');
+    sLetter.textContent = 's';
+    
+    // Create placeholder for missing 'c'
+    const cPlaceholder = document.createElement('span');
+    cPlaceholder.className = 'letter-placeholder missing-between';
+    cPlaceholder.textContent = '_';
+    cPlaceholder.setAttribute('data-missing-char', 'c');
+    cPlaceholder.setAttribute('data-position', '1');
+    
+    // Ensure the 'h' is handled correctly
+    let hLetter = letterPlaceholders[1];
+    
+    // Insert missing 'c' placeholder
+    if (hLetter) {
+      // Insert between 's' and 'h'
+      sLetter.parentNode.insertBefore(cPlaceholder, hLetter);
+      
+      // Mark 'h' as correct
+      hLetter.classList.add('correct');
+      hLetter.textContent = 'h';
+      hLetter.classList.remove('missing-char', 'missing-between');
+      
+      // Update all subsequent letter positions
+      for (let i = 2; i < letterPlaceholders.length; i++) {
+        const currentPos = parseInt(letterPlaceholders[i].getAttribute('data-position') || i);
+        letterPlaceholders[i].setAttribute('data-position', currentPos + 1);
+      }
+    } else {
+      // If 'h' wasn't found, append after 's'
+      sLetter.parentNode.appendChild(cPlaceholder);
+      
+      // Create a new element for 'h'
+      const newHLetter = document.createElement('span');
+      newHLetter.className = 'letter-placeholder correct';
+      newHLetter.textContent = 'h';
+      newHLetter.setAttribute('data-position', '2');
+      newHLetter.setAttribute('data-letter', 'h');
+      sLetter.parentNode.appendChild(newHLetter);
+    }
+    
+    console.log('[DEBUG] Completed special handling for "sh" vs "sch" pattern');
   }
 }
 

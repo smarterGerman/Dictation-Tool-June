@@ -18,6 +18,8 @@ import {
 import { createLogger, LOG_LEVELS } from './utils/logger.js';
 // Import the state manager
 import stateManager from './utils/stateManager.js';
+import { handleShPattern } from './textComparison/uiHelpers.js';
+import { findBestAlignment, createTransformationMap, findInsertPositionForMissingChar } from './textComparison/alignmentUtility.js';
 
 // Create a logger for this module
 const logger = createLogger('uiManager');
@@ -524,10 +526,8 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
         
         // Use our helper function to compare words with proper error handling
         const comparison = compareWords(inputWord, refWord);
-        
-        // Initialize substringStart for direct word comparisons
+        // Only use substringStart if needed for partial matches
         let substringStart = 0;
-        
         // Early return if it's a complete match ignoring punctuation
         if (comparison.isCleanMatch) {
           logger.debug('Complete match ignoring punctuation:', { inputWord, refWord });
@@ -535,20 +535,22 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
             const refPos = i;
             if (refPos < letterPlaceholders.length) {
               const letterSpan = letterPlaceholders[refPos];
-              if (letterSpan) {  // Add null/undefined check
+              if (letterSpan) {
                 letterSpan.textContent = inputWord[i];
                 letterSpan.classList.add('revealed');
-                letterSpan.classList.add('correct');  // Mark as correct since it's a complete match
+                letterSpan.classList.add('correct');
                 letterSpan.setAttribute('data-original-char', inputWord[i]);
               }
             }
           }
-          // Mark the whole word as correct
           wordElement.classList.add('word-correct');
           matchedRefIndices.add(bestMatchIndex);
-          return; // Return early since we've handled this case
+          return;
         }
-
+        
+        // Initialize substringStart for direct word comparisons
+        substringStart = 0;
+        
         for (let i = 0; i < inputWord.length; i++) {
           const refPos = substringStart + i;
           if (refPos < letterPlaceholders.length) {
@@ -816,217 +818,8 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
  */
 // Function removed to use the imported calculateSimilarityScore from textComparison/similarityScoring.js
 
-/**
- * Find the best alignment between two strings with detailed information
- * @param {string} input - The input string (user's text)
- * @param {string} reference - The reference string (correct text)
- * @returns {Object} - Alignment result with detailed information
- */
-function findBestAlignment(input, reference) {
-  // --- INITIALIZE DP TABLE ---
-  const dp = [];
-  for (let i = 0; i <= input.length; i++) {
-    dp[i] = [];
-    for (let j = 0; j <= reference.length; j++) {
-      dp[i][j] = {
-        score: 0,
-        direction: '', // 'left', 'up', or 'diag'
-        transformedPos: -1 // Track transformed position for each char
-      };
-    }
-  }
-  
-  // --- FILL DP TABLE ---
-  for (let i = 1; i <= input.length; i++) {
-    for (let j = 1; j <= reference.length; j++) {
-      const match = input[i-1] === reference[j-1];
-      const diagScore = dp[i-1][j-1].score + (match ? 1 : -1);
-      const upScore = dp[i][j-1].score - 1;
-      const leftScore = dp[i-1][j].score - 1;
-      
-      // Find the best score and direction
-      let bestScore = diagScore;
-      let bestDirection = 'diag';
-      
-      if (upScore > bestScore) {
-        bestScore = upScore;
-        bestDirection = 'up';
-      }
-      if (leftScore > bestScore) {
-        bestScore = leftScore;
-        bestDirection = 'left';
-      }
-      
-      dp[i][j].score = bestScore;
-      dp[i][j].direction = bestDirection;
-    }
-  }
-  
-  // --- TRACEBACK ---
-  const alignment = {
-    inputToRefMap: new Map(), // Maps input positions to reference positions
-    refToTransformedMap: new Map(), // Maps reference positions to transformed input positions
-    transformedToRefMap: new Map(), // Maps transformed input positions to reference positions
-    refPositionsMatched: new Set(), // Set of matched reference positions
-    isSubstringMatch: false, // Flag for substring match
-    substringPosition: -1 // Position of the substring match start
-  };
-  
-  let i = input.length;
-  let j = reference.length;
-  
-  while (i > 0 && j > 0) {
-    const current = dp[i][j];
-    
-    if (current.direction === 'diag') {
-      // Exact match or substitution
-      alignment.inputToRefMap.set(i-1, j-1);
-      alignment.refToTransformedMap.set(j-1, i-1);
-      alignment.transformedToRefMap.set(i-1, j-1);
-      alignment.refPositionsMatched.add(j-1);
-      
-      i--;
-      j--;
-    } else if (current.direction === 'up') {
-      // Insertion in reference (gap in input)
-      alignment.refToTransformedMap.set(j-1, -1);
-      alignment.transformedToRefMap.set(-1, j-1);
-      alignment.refPositionsMatched.add(j-1);
-      
-      j--;
-    } else if (current.direction === 'left') {
-      // Deletion in reference (gap in reference)
-      alignment.inputToRefMap.set(i-1, -1);
-      alignment.transformedToRefMap.set(i-1, -1);
-      
-      i--;
-    }
-  }
-  
-  // Handle remaining gaps
-  while (i > 0) {
-    alignment.inputToRefMap.set(i-1, -1);
-    alignment.transformedToRefMap.set(i-1, -1);
-    i--;
-  }
-  while (j > 0) {
-    alignment.refToTransformedMap.set(j-1, -1);
-    alignment.transformedToRefMap.set(-1, j-1);
-    j--;
-  }
-  
-  // --- DETECT SUBSTRING MATCHES ---
-  // If the input is a complete substring of the reference (or vice versa), mark as substring match
-  if (alignment.refPositionsMatched.size > 0 && alignment.refPositionsMatched.size < reference.length) {
-    const firstMatched = Math.min(...Array.from(alignment.refPositionsMatched));
-    const lastMatched = Math.max(...Array.from(alignment.refPositionsMatched));
-    
-    if (lastMatched - firstMatched + 1 === alignment.refPositionsMatched.size) {
-      alignment.isSubstringMatch = true;
-      alignment.substringPosition = firstMatched;
-    }
-  }
-  
-  return alignment;
-}
-
-/**
- * Create a mapping from original input positions to transformed positions
- * @param {string} originalInput - The original input string
- * @param {string} transformedInput - The transformed input string
- * @returns {Object} - Mapping object with original positions as keys and transformed positions as values
- */
-function createTransformationMap(originalInput, transformedInput) {
-  const map = {};
-  
-  // --- SIMPLE CASE: Exact match ---
-  if (originalInput === transformedInput) {
-    for (let i = 0; i < originalInput.length; i++) {
-      map[i] = i;
-    }
-    return map;
-  }
-  
-  // --- COMPLEX CASE: Transformations applied ---
-  let origIndex = 0;
-  let transIndex = 0;
-  
-  while (origIndex < originalInput.length && transIndex < transformedInput.length) {
-    const origChar = originalInput[origIndex];
-    const transChar = transformedInput[transIndex];
-    
-    // Direct match
-    if (origChar === transChar) {
-      map[origIndex] = transIndex;
-      origIndex++;
-      transIndex++;
-    }
-    // Umlaut transformations (ö, ü, ä)
-    else if (transChar === 'ö' && origChar === 'oe') {
-      map[origIndex] = transIndex;
-      map[origIndex+1] = transIndex;
-      origIndex += 2;
-      transIndex++;
-    }
-    else if (transChar === 'ü' && origChar === 'ue') {
-      map[origIndex] = transIndex;
-      map[origIndex+1] = transIndex;
-      origIndex += 2;
-      transIndex++;
-    }
-    else if (transChar === 'ä' && origChar === 'ae') {
-      map[origIndex] = transIndex;
-      map[origIndex+1] = transIndex;
-      origIndex += 2;
-      transIndex++;
-    }
-    // Skip over untransformed characters in the original (deletions)
-    else {
-      map[origIndex] = -1;
-      origIndex++;
-    }
-  }
-  
-  // Handle remaining characters in transformed input (insertions)
-  while (transIndex < transformedInput.length) {
-    map[origIndex] = transIndex;
-    origIndex++;
-    transIndex++;
-  }
-  
-  return map;
-}
-
-/**
- * Find the position to insert a missing character indicator
- * @param {number} refPos - The reference position of the missing character
- * @param {string} refWord - The reference word
- * @param {Set} matchedPositions - Set of already matched positions
- * @returns {number} - The position to insert the indicator
- */
-function findInsertPositionForMissingChar(refPos, refWord, matchedPositions) {
-  // If the missing character is at the beginning or end, insert at the same position
-  if (refPos === 0 || refPos === refWord.length) {
-    return refPos;
-  }
-  
-  // Check if there's a match immediately before or after the missing character
-  if (matchedPositions.has(refPos - 1)) {
-    return refPos;
-  }
-  if (matchedPositions.has(refPos)) {
-    return refPos;
-  }
-  
-  // Heuristic: insert before the first unmatched character
-  for (let i = refPos; i < refWord.length; i++) {
-    if (!matchedPositions.has(i)) {
-      return i;
-    }
-  }
-  
-  return -1; // Default to -1 if no suitable position found
-}
+// Alignment and mapping helpers are now imported from alignmentUtility.js
+// (findBestAlignment, createTransformationMap, findInsertPositionForMissingChar)
 
 /**
  * Handle special case for "sh" vs "sch" pattern
@@ -1035,27 +828,4 @@ function findInsertPositionForMissingChar(refPos, refWord, matchedPositions) {
  * @param {string} transformedInputWord - The transformed input word
  * @param {string} refWord - The reference word
  */
-function handleShPattern(wordElement, inputWord, transformedInputWord, refWord) {
-  // For "sh" vs "sch" cases, reveal the "sh" as correct and hide the "c"
-  const letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-  
-  // Show "s" and "h" as correct
-  if (letterPlaceholders.length > 0) {
-    letterPlaceholders[0].classList.add('correct');
-  }
-  if (letterPlaceholders.length > 1) {
-    letterPlaceholders[1].classList.add('correct');
-  }
-}
-
-/**
- * Compares two words and returns alignment information
- * This function has been moved to textComparison/wordComparisonService.js
- * and is now imported from the textComparison/index.js file
- */
-
-/**
- * Find the best matching reference word for an input word
- * This function has been moved to textComparison/wordComparisonService.js
- * and is now imported from the textComparison/index.js file
- */
+// handleShPattern is now imported from textComparison/uiHelpers.js

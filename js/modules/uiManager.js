@@ -501,6 +501,8 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
         }
         
         // Special case: if input and reference only differ by punctuation, mark all letters as correct and return early
+        const cleanInput = inputWord.replace(/[.,;:!?()[\]{}'"–—-]/g, '').toLowerCase();
+        const cleanRef = refWord.replace(/[.,;:!?()[\]{}'"–—-]/g, '').toLowerCase();
         const isCompleteMatch = cleanInput === cleanRef;
         
         for (let i = 0; i < inputWord.length; i++) {

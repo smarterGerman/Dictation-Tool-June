@@ -501,113 +501,137 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
         }
         
         // Update display based on the alignment
-        for (let i = 0; i < inputWord.length; i++) {
-          // Get the corresponding letter placeholder (if available)
-          if (i < letterPlaceholders.length) {
-            const letterSpan = letterPlaceholders[i];
-            
-            // Show the original character the user typed
-            letterSpan.textContent = inputWord[i];
-            letterSpan.classList.add('revealed');
-            
-            // Add data attribute for debugging
-            letterSpan.setAttribute('data-original-char', inputWord[i]);
-            
-            // Find which transformed character this maps to
-            const transformedPos = originalToTransformedMap[i];
-            
-            // Check if this is part of an umlaut transformation (like 'oe' → 'ö')
-            const isUmlaut = originalToTransformedMap['umlaut_' + (i-1)] || originalToTransformedMap['umlaut_' + i];
-            
-            if (transformedPos !== undefined) {
-              // Find where this transformed character aligns in the reference word
-              const refPos = alignmentResult.transformedToRefMap[transformedPos];
+        if (alignmentResult.isSubstringMatch) {
+          // Clear all placeholders to underscores first
+          letterPlaceholders.forEach((span) => {
+            span.textContent = '_';
+            span.className = 'letter-placeholder';
+          });
+          // Place user input only at the substring positions
+          const substringStart = alignmentResult.substringPosition;
+          for (let i = 0; i < inputWord.length; i++) {
+            const refPos = substringStart + i;
+            if (refPos < letterPlaceholders.length) {
+              const letterSpan = letterPlaceholders[refPos];
+              letterSpan.textContent = inputWord[i];
+              letterSpan.classList.add('revealed');
+              letterSpan.setAttribute('data-original-char', inputWord[i]);
+              // Mark as correct/misspelled
+              if (inputWord[i].toLowerCase() === refWord[refPos].toLowerCase()) {
+                letterSpan.classList.add('correct');
+              } else {
+                letterSpan.classList.add('misspelled');
+              }
+            }
+          }
+        } else {
+          for (let i = 0; i < inputWord.length; i++) {
+            // Get the corresponding letter placeholder (if available)
+            if (i < letterPlaceholders.length) {
+              const letterSpan = letterPlaceholders[i];
+              // Show the original character the user typed
+              letterSpan.textContent = inputWord[i];
+              letterSpan.classList.add('revealed');
               
-              if (refPos !== undefined && refPos < refWord.length) {
-                // Get the actual characters for comparison
-                const transformedChar = transformedInputWord[transformedPos];
-                const refChar = refWord[refPos];
+              // Add data attribute for debugging
+              letterSpan.setAttribute('data-original-char', inputWord[i]);
+              
+              // Find which transformed character this maps to
+              const transformedPos = originalToTransformedMap[i];
+              
+              // Check if this is part of an umlaut transformation (like 'oe' → 'ö')
+              const isUmlaut = originalToTransformedMap['umlaut_' + (i-1)] || originalToTransformedMap['umlaut_' + i];
+              
+              if (transformedPos !== undefined) {
+                // Find where this transformed character aligns in the reference word
+                const refPos = alignmentResult.transformedToRefMap[transformedPos];
                 
-                console.log('[DEBUG] Aligned comparison:', 
-                          'original:', inputWord[i],
-                          'transformed:', transformedChar, 
-                          'reference:', refChar,
-                          'positions:', i, transformedPos, refPos,
-                          'isUmlaut:', isUmlaut);
-                
-                // Special handling for umlaut characters (both 'o' and 'e' in 'oe')
-                if (isUmlaut) {
-                  console.log('[DEBUG] Found umlaut character at position', i, 'in word:', inputWord);
+                if (refPos !== undefined && refPos < refWord.length) {
+                  // Get the actual characters for comparison
+                  const transformedChar = transformedInputWord[transformedPos];
+                  const refChar = refWord[refPos];
                   
-                  letterSpan.setAttribute('data-umlaut', 'true');
+                  console.log('[DEBUG] Aligned comparison:', 
+                            'original:', inputWord[i],
+                            'transformed:', transformedChar, 
+                            'reference:', refChar,
+                            'positions:', i, transformedPos, refPos,
+                            'isUmlaut:', isUmlaut);
                   
-                  // Add special CSS class based on which part of the umlaut this is
-                  if (i > 0 && originalToTransformedMap['umlaut_' + (i-1)]) {
-                    // This is the 'e' in 'oe'
-                    letterSpan.classList.add('umlaut-part', 'umlaut-second-part');
-                    // Make sure display:none is applied correctly
-                    letterSpan.style.display = 'none';
-                    letterSpan.style.width = '0';
-                    letterSpan.style.opacity = '0';
-                    letterSpan.textContent = '';
-                    console.log('[DEBUG] This is the second part of an umlaut:', inputWord[i]);
+                  // Special handling for umlaut characters (both 'o' and 'e' in 'oe')
+                  if (isUmlaut) {
+                    console.log('[DEBUG] Found umlaut character at position', i, 'in word:', inputWord);
                     
-                    // For the second part, make parent's correctness apply to this element
-                    if (letterPlaceholders[i-1] && letterPlaceholders[i-1].classList.contains('correct')) {
-                      letterSpan.classList.add('correct');
-                    }
+                    letterSpan.setAttribute('data-umlaut', 'true');
                     
-                  } else {
-                    // This is the 'o' in 'oe'
-                    letterSpan.classList.add('umlaut-part', 'umlaut-first-part');
-                    console.log('[DEBUG] This is the first part of an umlaut:', inputWord[i]);
-                    
-                    // Convert the two characters to show the umlaut
-                    if (i+1 < inputWord.length) {
-                      // Find which umlaut this is
-                      const twoChars = inputWord.substring(i, i+2).toLowerCase();
-                      if (twoChars === 'oe') {
-                        letterSpan.textContent = 'ö';
-                        letterSpan.setAttribute('data-original-char', 'ö');
+                    // Add special CSS class based on which part of the umlaut this is
+                    if (i > 0 && originalToTransformedMap['umlaut_' + (i-1)]) {
+                      // This is the 'e' in 'oe'
+                      letterSpan.classList.add('umlaut-part', 'umlaut-second-part');
+                      // Make sure display:none is applied correctly
+                      letterSpan.style.display = 'none';
+                      letterSpan.style.width = '0';
+                      letterSpan.style.opacity = '0';
+                      letterSpan.textContent = '';
+                      console.log('[DEBUG] This is the second part of an umlaut:', inputWord[i]);
+                      
+                      // For the second part, make parent's correctness apply to this element
+                      if (letterPlaceholders[i-1] && letterPlaceholders[i-1].classList.contains('correct')) {
+                        letterSpan.classList.add('correct');
                       }
-                      else if (twoChars === 'ae') {
-                        letterSpan.textContent = 'ä';
-                        letterSpan.setAttribute('data-original-char', 'ä');
-                      }
-                      else if (twoChars === 'ue') {
-                        letterSpan.textContent = 'ü';
-                        letterSpan.setAttribute('data-original-char', 'ü');
+                      
+                    } else {
+                      // This is the 'o' in 'oe'
+                      letterSpan.classList.add('umlaut-part', 'umlaut-first-part');
+                      console.log('[DEBUG] This is the first part of an umlaut:', inputWord[i]);
+                      
+                      // Convert the two characters to show the umlaut
+                      if (i+1 < inputWord.length) {
+                        // Find which umlaut this is
+                        const twoChars = inputWord.substring(i, i+2).toLowerCase();
+                        if (twoChars === 'oe') {
+                          letterSpan.textContent = 'ö';
+                          letterSpan.setAttribute('data-original-char', 'ö');
+                        }
+                        else if (twoChars === 'ae') {
+                          letterSpan.textContent = 'ä';
+                          letterSpan.setAttribute('data-original-char', 'ä');
+                        }
+                        else if (twoChars === 'ue') {
+                          letterSpan.textContent = 'ü';
+                          letterSpan.setAttribute('data-original-char', 'ü');
+                        }
                       }
                     }
                   }
-                }
-                
-                // Hide the second character of the umlaut pair (the 'e' in 'oe')
-                if (i > 0 && originalToTransformedMap['umlaut_' + (i-1)]) {
-                  // Make this element completely invisible and take no space
-                  letterSpan.style.display = 'none'; 
-                  letterSpan.innerHTML = ''; 
-                  letterSpan.style.width = '0';
-                  letterSpan.style.margin = '0';
-                  letterSpan.style.padding = '0';
-                  letterSpan.style.position = 'absolute';
-                  letterSpan.style.visibility = 'hidden';
-                  letterSpan.classList.add('hidden', 'umlaut-second-part'); 
-                }
-                
-                // Apply appropriate class based on character match
-                if (transformedChar === refChar) {
-                  letterSpan.classList.add('correct');
+                  
+                  // Hide the second character of the umlaut pair (the 'e' in 'oe')
+                  if (i > 0 && originalToTransformedMap['umlaut_' + (i-1)]) {
+                    // Make this element completely invisible and take no space
+                    letterSpan.style.display = 'none'; 
+                    letterSpan.innerHTML = ''; 
+                    letterSpan.style.width = '0';
+                    letterSpan.style.margin = '0';
+                    letterSpan.style.padding = '0';
+                    letterSpan.style.position = 'absolute';
+                    letterSpan.style.visibility = 'hidden';
+                    letterSpan.classList.add('hidden', 'umlaut-second-part'); 
+                  }
+                  
+                  // Apply appropriate class based on character match
+                  if (transformedChar === refChar) {
+                    letterSpan.classList.add('correct');
+                  } else {
+                    letterSpan.classList.add('misspelled');
+                  }
                 } else {
+                  // This character has no alignment in the reference word
                   letterSpan.classList.add('misspelled');
                 }
               } else {
-                // This character has no alignment in the reference word
+                // Could not map this character
                 letterSpan.classList.add('misspelled');
               }
-            } else {
-              // Could not map this character
-              letterSpan.classList.add('misspelled');
             }
           }
         }
@@ -616,6 +640,17 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
         // But don't reveal what they are - just indicate something is missing
         for (let i = 0; i < refWord.length; i++) {
           if (!alignmentResult.refPositionsMatched.has(i)) {
+            // NEW: Skip missing character indicators outside substring region for substring matches
+            if (alignmentResult.isSubstringMatch) {
+              const substringStart = alignmentResult.substringPosition;
+              const substringEnd = substringStart + transformedInputWord.length;
+              
+              // If this missing character is outside the substring region, don't show an indicator
+              if (i < substringStart || i >= substringEnd) {
+                continue;
+              }
+            }
+            
             // Find appropriate position to insert the missing character indicator
             const insertPosition = findInsertPositionForMissingChar(
               i, refWord, alignmentResult.refPositionsMatched
@@ -892,82 +927,90 @@ function findBestAlignment(transformedInput, referenceWord) {
   const alignment = {
     transformedToRefMap: {},
     refToTransformedMap: {},
-    refPositionsMatched: new Set()
+    refPositionsMatched: new Set(),
+    isSubstringMatch: false,
+    substringPosition: -1
   };
+  
+  // Check if input is a substring of reference
+  const lowerInput = transformedInput.toLowerCase();
+  const lowerRef = referenceWord.toLowerCase();
+  
+  const substringIndex = lowerRef.indexOf(lowerInput);
+  if (substringIndex !== -1) {
+    console.log('[DEBUG] Found substring match at position', substringIndex);
+    
+    // Mark this as a substring match
+    alignment.isSubstringMatch = true;
+    alignment.substringPosition = substringIndex;
+    
+    // Map all characters as a coherent block at the substring position
+    for (let i = 0; i < transformedInput.length; i++) {
+      alignment.transformedToRefMap[i] = substringIndex + i;
+      alignment.refToTransformedMap[substringIndex + i] = i;
+      alignment.refPositionsMatched.add(substringIndex + i);
+    }
+    
+    return alignment;
+  }
   
   // 1. Handle special case for "shöner" vs "schöner" (missing 'c')
   if (transformedInput.startsWith('sh') && referenceWord.startsWith('sch')) {
-    console.log('[DEBUG] Special case: shöner vs schöner detected');
-    
-    // Map 's' to 's'
     alignment.transformedToRefMap[0] = 0;
     alignment.refToTransformedMap[0] = 0;
     alignment.refPositionsMatched.add(0);
-    
-    // Skip the 'c' in reference (position 1) - it's missing in the input
-    // But mark it as a special 'sh' case for UI handling
     alignment['sh_special_case'] = true;
-    
-    // Map 'h' to 'h' in reference (position 2)
     alignment.transformedToRefMap[1] = 2;
     alignment.refToTransformedMap[2] = 1;
     alignment.refPositionsMatched.add(2);
-    
-    // Map the rest of the characters (after 'h')
     for (let i = 2, j = 3; i < transformedInput.length && j < referenceWord.length; i++, j++) {
       alignment.transformedToRefMap[i] = j;
       alignment.refToTransformedMap[j] = i;
       alignment.refPositionsMatched.add(j);
     }
-    
     return alignment;
   }
   
-  // 2. Special case for exact matches but with different length
+  // 2. Substring-first alignment: if transformedInput is a substring of referenceWord, map as contiguous block
+  const substringPos = referenceWord.indexOf(transformedInput);
+  if (substringPos !== -1) {
+    for (let i = 0; i < transformedInput.length; i++) {
+      alignment.transformedToRefMap[i] = substringPos + i;
+      alignment.refToTransformedMap[substringPos + i] = i;
+      alignment.refPositionsMatched.add(substringPos + i);
+    }
+    return alignment;
+  }
+  
+  // 3. Special case for exact matches but with different length
   if (transformedInput === referenceWord) {
-    console.log('[DEBUG] Exact match case');
-    
-    // One-to-one mapping for all characters
     for (let i = 0; i < transformedInput.length; i++) {
       alignment.transformedToRefMap[i] = i;
       alignment.refToTransformedMap[i] = i;
       alignment.refPositionsMatched.add(i);
     }
-    
     return alignment;
   }
   
-  // 3. Use dynamic programming to find the longest common subsequence
-  // and build a character alignment based on that
+  // 4. Use dynamic programming to find the longest common subsequence
   const lcs = computeLongestCommonSubsequence(transformedInput, referenceWord);
-  console.log('[DEBUG] LCS result:', lcs);
-  
-  // Map the matching characters based on LCS
   let tIndex = 0;
   let rIndex = 0;
-  
   for (const matchChar of lcs) {
-    // Find the next occurrence of matchChar in both strings
     while (tIndex < transformedInput.length && transformedInput[tIndex] !== matchChar) {
       tIndex++;
     }
-    
     while (rIndex < referenceWord.length && referenceWord[rIndex] !== matchChar) {
       rIndex++;
     }
-    
-    // Map these positions
     if (tIndex < transformedInput.length && rIndex < referenceWord.length) {
       alignment.transformedToRefMap[tIndex] = rIndex;
       alignment.refToTransformedMap[rIndex] = tIndex;
       alignment.refPositionsMatched.add(rIndex);
-      
-      // Move to next position
       tIndex++;
       rIndex++;
     }
   }
-  
   return alignment;
 }
 

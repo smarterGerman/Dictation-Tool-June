@@ -447,7 +447,7 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
       
       // Calculate similarity between transformed input and reference
       const similarity = calculateSimilarityScore(transformedInput, refLower);
-      if (similarity > 0.5 && similarity > bestMatchScore) {
+      if (similarity > 0.37 && similarity > bestMatchScore) {
         bestMatchIndex = refWordIndex;
         bestMatchScore = similarity;
       }
@@ -723,52 +723,74 @@ function transformGermanInput(input) {
 }
 
 /**
- * Calculate similarity between two strings with German orthographic awareness
- * @param {string} str1 
- * @param {string} str2 
+ * Calculate similarity between two strings using a combination of bigrams and trigrams
+ * @param {string} str1 - First string (should be transformed already)
+ * @param {string} str2 - Second string (should be transformed already)
  * @returns {number} - Similarity score between 0 and 1
  */
 function calculateSimilarityScore(str1, str2) {
   if (!str1 || !str2) return 0;
   if (str1 === str2) return 1.0;
-  
-  const len1 = str1.length;
-  const len2 = str2.length;
-  const maxLen = Math.max(len1, len2);
-  
-  // Special case for German orthography: Check for common omission patterns
-  // like "shöner" vs "schöner" (missing 'c')
-  if (str1.startsWith('sh') && str2.startsWith('sch')) {
-    return 0.85; // High score but not perfect - missing 'c'
-  }
-  if (str2.startsWith('sh') && str1.startsWith('sch')) {
-    return 0.85; // High score but not perfect - missing 'c'
-  }
-  
-  // Check prefix matching (weighted higher)
-  let prefixLen = 0;
-  for (let i = 0; i < Math.min(len1, len2); i++) {
-    if (str1[i] === str2[i]) {
-      prefixLen++;
-    } else {
-      break;
+
+  // Ensure strings are normalized before comparison
+  str1 = transformSpecialCharacters(str1.toLowerCase());
+  str2 = transformSpecialCharacters(str2.toLowerCase());
+
+  // Create character n-grams (both bigrams and trigrams)
+  const getBigrams = str => {
+    const bigrams = {};
+    for (let i = 0; i < str.length - 1; i++) {
+      const bg = str.substring(i, i + 2);
+      bigrams[bg] = (bigrams[bg] || 0) + 1;
     }
-  }
-  
-  // If significant prefix match, give high score
-  if (prefixLen >= Math.min(len1, len2) * 0.75) {
-    return 0.7 + (0.3 * prefixLen / maxLen);
-  }
-  
-  // Regular character matching
-  let matches = 0;
-  for (let i = 0; i < len1; i++) {
-    if (i < len2 && str1[i] === str2[i]) {
-      matches++;
+    return bigrams;
+  };
+
+  const getTrigrams = str => {
+    const trigrams = {};
+    for (let i = 0; i < str.length - 2; i++) {
+      const tg = str.substring(i, i + 3);
+      trigrams[tg] = (trigrams[tg] || 0) + 1;
     }
+    return trigrams;
+  };
+
+  // Calculate bigram similarity
+  const bigrams1 = getBigrams(str1);
+  const bigrams2 = getBigrams(str2);
+
+  let sharedBigrams = 0;
+  let totalBigrams = 0;
+
+  for (const bg in bigrams1) {
+    if (bigrams2[bg]) sharedBigrams += Math.min(bigrams1[bg], bigrams2[bg]);
+    totalBigrams += bigrams1[bg];
   }
-  
-  return matches / maxLen;
+  for (const bg in bigrams2) {
+    totalBigrams += bigrams2[bg];
+  }
+
+  // Calculate trigram similarity
+  const trigrams1 = getTrigrams(str1);
+  const trigrams2 = getTrigrams(str2);
+
+  let sharedTrigrams = 0;
+  let totalTrigrams = 0;
+
+  for (const tg in trigrams1) {
+    if (trigrams2[tg]) sharedTrigrams += Math.min(trigrams1[tg], trigrams2[tg]);
+    totalTrigrams += trigrams1[tg];
+  }
+  for (const tg in trigrams2) {
+    totalTrigrams += trigrams2[tg];
+  }
+
+  // Dice coefficients
+  const bigramScore = totalBigrams > 0 ? (sharedBigrams * 2) / totalBigrams : 0;
+  const trigramScore = totalTrigrams > 0 ? (sharedTrigrams * 2) / totalTrigrams : 0;
+
+  // Weight: trigrams 0.6, bigrams 0.4
+  return (bigramScore * 0.4) + (trigramScore * 0.6);
 }
 
 /**

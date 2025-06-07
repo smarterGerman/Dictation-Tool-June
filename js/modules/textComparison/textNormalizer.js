@@ -3,6 +3,10 @@
  * Handles normalizing text for more accurate comparison,
  * with special handling for German language characters.
  */
+import { createLogger } from '../utils/logger.js';
+
+// Create logger for this module
+const logger = createLogger('textNormalizer');
 
 // Add protection against auto-advancement too soon after segment change
 let lastSegmentAdvanceTime = 0;
@@ -49,24 +53,24 @@ export function transformSpecialCharacters(input) {
         // Apply transformations in a specific order for best results
         // 1. First transform letter+e patterns
         result = transformLetterE(result);
-        console.log('After transformLetterE:', result);
+        logger.debug('After transformLetterE', { result });
         
         // 2. Then transform colon patterns
         result = transformColon(result);
-        console.log('After transformColon:', result);
+        logger.debug('After transformColon', { result });
         
         // 3. Then transform slash patterns
         result = transformSlash(result);
-        console.log('After transformSlash:', result);
+        logger.debug('After transformSlash', { result });
         
         // 4. Finally transform eszett
         result = transformEszett(result);
-        console.log('After transformEszett:', result);
+        logger.debug('After transformEszett', { result });
         
         return result;
     } catch (err) {
         // Fallback in case of any error - return original input
-        console.error("Error in transformation:", err);
+        logger.error("Error in transformation", err);
         return input;
     }
 }
@@ -79,19 +83,19 @@ export function transformSpecialCharacters(input) {
 function transformLetterE(text) {
     if (!text) return text;
     
-    console.log('ℹ️ transformLetterE input:', text);
+    logger.debug('transformLetterE input', { text });
     
     // Log intermediate transformations:
     let result = text;
     
     result = result.replace(/ae/g, 'ä');
-    console.log('After ae→ä:', result);
+    logger.debug('After ae→ä', { result });
     
     result = result.replace(/oe/g, 'ö');
-    console.log('After oe→ö:', result); 
+    logger.debug('After oe→ö', { result }); 
     
     result = result.replace(/ue/g, 'ü');
-    console.log('After ue→ü:', result);
+    logger.debug('After ue→ü', { result });
     
     result = result.replace(/Ae/g, 'Ä');
     result = result.replace(/Oe/g, 'Ö');
@@ -203,4 +207,52 @@ export function normalizeText(text) {
     .replace(/[.,;:!?()[\]{}'"–—-]/g, '') // Remove punctuation
     .replace(/\s+/g, ' ')                // Normalize whitespace
     .trim();
+}
+
+/**
+ * Creates a text normalizer utility with methods for consistent text transformations
+ * @returns {Object} Text normalizer utility with normalization functions
+ */
+export function createTextNormalizer() {
+  return {
+    /**
+     * Remove punctuation from text and convert to lowercase
+     * @param {string} text - The text to normalize
+     * @returns {string} Text with punctuation removed and lowercase
+     */
+    removePunctuation(text) {
+      if (!text) return '';
+      return text.replace(/[.,;:!?()[\]{}'"–—-]/g, '').toLowerCase();
+    },
+    
+    /**
+     * Normalize whitespace in text (trim and collapse multiple spaces)
+     * @param {string} text - The text to normalize
+     * @returns {string} Text with normalized whitespace
+     */
+    normalizeWhitespace(text) {
+      if (!text) return '';
+      return text.trim().replace(/\s+/g, ' ');
+    },
+    
+    /**
+     * Remove accents from text
+     * @param {string} text - The text to normalize
+     * @returns {string} Text with accents removed
+     */
+    removeAccents(text) {
+      if (!text) return '';
+      return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    },
+    
+    /**
+     * Normalize text for comparison (lowercase, remove punctuation and normalize whitespace)
+     * @param {string} text - The text to normalize
+     * @returns {string} Fully normalized text
+     */
+    normalizeForComparison(text) {
+      if (!text) return '';
+      return this.removePunctuation(this.normalizeWhitespace(text));
+    }
+  };
 }

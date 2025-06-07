@@ -3,7 +3,24 @@
  * Handles UI rendering and updates for text comparison results
  * Implements the reference-text-only display approach
  */
-import { processInput, generateHighlightedHTML, transformSpecialCharacters } from './textComparison/index.js';
+import { 
+  processInput, 
+  generateHighlightedHTML, 
+  transformSpecialCharacters,
+  createAlignment,
+  DEFAULT_ALIGNMENT_RESULT,
+  calculateSimilarityScore,
+  createTextNormalizer,
+  compareWords,
+  findBestMatchingReferenceWord,
+  createAdvancedAlignment
+} from './textComparison/index.js';
+import { createLogger, LOG_LEVELS } from './utils/logger.js';
+// Import the state manager
+import stateManager from './utils/stateManager.js';
+
+// Create a logger for this module
+const logger = createLogger('uiManager');
 
 /**
  * Updates the UI with comparison results, showing reference text with highlighting
@@ -409,49 +426,53 @@ export function updateRawInputDisplay(rawInputDisplay, input) {
  * @param {string} referenceText - The reference text
  */
 export function updateReferenceMappingDisplay(referenceMapRow, result, referenceText) {
-  if (!referenceMapRow) return;
-  referenceMapRow.innerHTML = '';
+  try {
+    if (!referenceMapRow) {
+      logger.warn('Missing referenceMapRow in updateReferenceMappingDisplay');
+      return;
+    }
+    
+    // Clear existing content
+    referenceMapRow.innerHTML = '';
 
-  // Generate placeholder container for reference
-  const placeholderContainer = generatePlaceholdersForReference(referenceText);
-  referenceMapRow.appendChild(placeholderContainer);
-  
-  // If no result, just return the placeholders
-  if (!result || !result.inputText) return;
-  
-  // Use the original input words - NOT the transformed ones
-  const inputWords = result.inputText.trim().split(/\s+/);
-  const refWords = referenceText.trim().split(/\s+/);
-  
-  // Track which reference words have already been matched
-  const matchedRefIndices = new Set();
+    // Generate placeholder container for reference
+    const placeholderContainer = generatePlaceholdersForReference(referenceText);
+    if (!placeholderContainer) {
+      logger.error('Failed to generate placeholders for reference text');
+      return;
+    }
+    
+    referenceMapRow.appendChild(placeholderContainer);
+    
+    // If no result, just return the placeholders
+    if (!result || !result.inputText) {
+      logger.debug('No result data provided, showing empty placeholders');
+      return;
+    }
+    
+    // Use the original input words - NOT the transformed ones
+    const inputWords = result.inputText ? result.inputText.trim().split(/\s+/) : [];
+    const refWords = referenceText ? referenceText.trim().split(/\s+/) : [];
+    
+    if (!inputWords.length || !refWords.length) {
+      logger.warn('No words to process in updateReferenceMappingDisplay');
+      return;
+    }
+    
+    logger.debug('Processing comparison between input and reference words', { inputWords, refWords });
+    
+    // Track which reference words have already been matched
+    const matchedRefIndices = new Set();
   
   // Process each input word in the order the user typed them
   inputWords.forEach((inputWord, inputWordIndex) => {
     if (!inputWord) return;
     
-    // Find best matching reference word
-    let bestMatchIndex = -1;
-    let bestMatchScore = 0;
-    
-    // Check all reference words to find the best match
-    refWords.forEach((refWord, refWordIndex) => {
-      if (matchedRefIndices.has(refWordIndex)) return;
-      
-      // Try matching but preserve original input for display
-      const transformedInput = transformSpecialCharacters(inputWord.toLowerCase());
-      const refLower = refWord.toLowerCase();
-      
-      // DEBUG LOGGING
-      console.log('[DEBUG] Matching inputWord:', inputWord, 'transformedInput:', transformedInput, 'refWord:', refWord);
-      
-      // Calculate similarity between transformed input and reference
-      const similarity = calculateSimilarityScore(transformedInput, refLower);
-      if (similarity > 0.37 && similarity > bestMatchScore) {
-        bestMatchIndex = refWordIndex;
-        bestMatchScore = similarity;
-      }
-    });
+    // Use our helper function to find the best matching reference word
+    const matchResult = findBestMatchingReferenceWord(inputWord, refWords, matchedRefIndices);
+    let bestMatchIndex = matchResult.index;
+    let bestMatchScore = matchResult.score;
+    let transformedInput = matchResult.transformedInput;
     
     // If we found a match, show the ORIGINAL user input with feedback
     if (bestMatchIndex !== -1 && bestMatchScore > 0.5) {
@@ -480,11 +501,12 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
         // Transform the entire input word once
         transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
         
-        console.log('[DEBUG] Word comparison:', inputWord, '→', transformedInputWord, 'vs', refWord);
+        logger.debug('Word comparison', { input: inputWord, transformed: transformedInputWord, reference: refWord });
         
         // Special case: input and reference only differ by trailing punctuation
-        const inputNoPunct = inputWord.replace(/[.,;:!?()[\]{}'"–—-]/g, '');
-        const refNoPunct = refWord.replace(/[.,;:!?()[\]{}'"–—-]/g, '');
+        const textNormalizer = createTextNormalizer();
+        const inputNoPunct = textNormalizer.removePunctuation(inputWord);
+        const refNoPunct = textNormalizer.removePunctuation(refWord);
         if (inputNoPunct === refNoPunct) {
           for (let i = 0; i < Math.min(inputWord.length, refWord.length); i++) {
             const letterSpan = letterPlaceholders[i];
@@ -500,15 +522,32 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
           return;
         }
         
-        // Special case: if input and reference only differ by punctuation, mark all letters as correct and return early
-        const cleanInput = inputWord.replace(/[.,;:!?()[\]{}'"–—-]/g, '').toLowerCase();
-const cleanRef = refWord.replace(/[.,;:!?()[\]{}'"–—-]/g, '').toLowerCase();
-
-// Special case: if input and reference only differ by punctuation, mark all letters as correct and return early
-const isCompleteMatch = cleanInput === cleanRef;
-
+        // Use our helper function to compare words with proper error handling
+        const comparison = compareWords(inputWord, refWord);
+        
         // Initialize substringStart for direct word comparisons
-        const substringStart = 0;
+        let substringStart = 0;
+        
+        // Early return if it's a complete match ignoring punctuation
+        if (comparison.isCleanMatch) {
+          logger.debug('Complete match ignoring punctuation:', { inputWord, refWord });
+          for (let i = 0; i < inputWord.length; i++) {
+            const refPos = i;
+            if (refPos < letterPlaceholders.length) {
+              const letterSpan = letterPlaceholders[refPos];
+              if (letterSpan) {  // Add null/undefined check
+                letterSpan.textContent = inputWord[i];
+                letterSpan.classList.add('revealed');
+                letterSpan.classList.add('correct');  // Mark as correct since it's a complete match
+                letterSpan.setAttribute('data-original-char', inputWord[i]);
+              }
+            }
+          }
+          // Mark the whole word as correct
+          wordElement.classList.add('word-correct');
+          matchedRefIndices.add(bestMatchIndex);
+          return; // Return early since we've handled this case
+        }
 
         for (let i = 0; i < inputWord.length; i++) {
           const refPos = substringStart + i;
@@ -533,6 +572,18 @@ const isCompleteMatch = cleanInput === cleanRef;
           matchedRefIndices.add(bestMatchIndex);
         }
       } else {
+        // Create character-by-character alignment between input and reference words
+        const alignmentResult = createAlignment(inputWord, refWord);
+        
+        // Get the mapping from original to transformed characters
+        const { originalToTransformedMap } = alignmentResult;
+        
+        logger.debug('Word alignment created', { 
+          inputWord, 
+          refWord, 
+          mappedPositions: Object.keys(alignmentResult.transformedToRefMap).length
+        });
+        
         for (let i = 0; i < inputWord.length; i++) {
           // Get the corresponding letter placeholder (if available)
           if (i < letterPlaceholders.length) {
@@ -544,6 +595,13 @@ const isCompleteMatch = cleanInput === cleanRef;
             // Add data attribute for debugging
             letterSpan.setAttribute('data-original-char', inputWord[i]);
             
+            // Add defensive check for originalToTransformedMap
+            if (!originalToTransformedMap) {
+              logger.warn('originalToTransformedMap is undefined');
+              letterSpan.classList.add('misspelled');
+              continue;
+            }
+            
             // Find which transformed character this maps to
             const transformedPos = originalToTransformedMap[i];
             
@@ -551,6 +609,13 @@ const isCompleteMatch = cleanInput === cleanRef;
             const isUmlaut = originalToTransformedMap['umlaut_' + (i-1)] || originalToTransformedMap['umlaut_' + i];
             
             if (transformedPos !== undefined) {
+              // Add defensive check for alignmentResult
+              if (!alignmentResult || !alignmentResult.transformedToRefMap) {
+                logger.warn('alignmentResult missing or incomplete', { alignmentResult });
+                letterSpan.classList.add('misspelled');
+                continue;
+              }
+              
               // Find where this transformed character aligns in the reference word
               const refPos = alignmentResult.transformedToRefMap[transformedPos];
               
@@ -559,21 +624,22 @@ const isCompleteMatch = cleanInput === cleanRef;
                 const transformedChar = transformedInputWord[transformedPos];
                 const refChar = refWord[refPos];
                 
-                console.log('[DEBUG] Aligned comparison:', 
-                          'original:', inputWord[i],
-                          'transformed:', transformedChar, 
-                          'reference:', refChar,
-                          'positions:', i, transformedPos, refPos,
-                          'isUmlaut:', isUmlaut);
+                logger.debug('Aligned comparison', { 
+                  original: inputWord[i],
+                  transformed: transformedChar, 
+                  reference: refChar,
+                  positions: { original: i, transformed: transformedPos, reference: refPos },
+                  isUmlaut
+                });
                 
                 // Special handling for umlaut characters (both 'o' and 'e' in 'oe')
                 if (isUmlaut) {
-                  console.log('[DEBUG] Found umlaut character at position', i, 'in word:', inputWord);
+                  logger.debug('Found umlaut character', { position: i, word: inputWord });
                   
                   letterSpan.setAttribute('data-umlaut', 'true');
                   
                   // Add special CSS class based on which part of the umlaut this is
-                  if (i > 0 && originalToTransformedMap['umlaut_' + (i-1)]) {
+                  if (i > 0 && originalToTransformedMap && originalToTransformedMap['umlaut_' + (i-1)]) {
                     // This is the 'e' in 'oe'
                     letterSpan.classList.add('umlaut-part', 'umlaut-second-part');
                     // Make sure display:none is applied correctly
@@ -581,7 +647,7 @@ const isCompleteMatch = cleanInput === cleanRef;
                     letterSpan.style.width = '0';
                     letterSpan.style.opacity = '0';
                     letterSpan.textContent = '';
-                    console.log('[DEBUG] This is the second part of an umlaut:', inputWord[i]);
+                    logger.debug('This is the second part of an umlaut', { char: inputWord[i] });
                     
                     // For the second part, make parent's correctness apply to this element
                     if (letterPlaceholders[i-1] && letterPlaceholders[i-1].classList.contains('correct')) {
@@ -591,7 +657,7 @@ const isCompleteMatch = cleanInput === cleanRef;
                   } else {
                     // This is the 'o' in 'oe'
                     letterSpan.classList.add('umlaut-part', 'umlaut-first-part');
-                    console.log('[DEBUG] This is the first part of an umlaut:', inputWord[i]);
+                    logger.debug('This is the first part of an umlaut', { char: inputWord[i] });
                     
                     // Convert the two characters to show the umlaut
                     if (i+1 < inputWord.length) {
@@ -614,7 +680,7 @@ const isCompleteMatch = cleanInput === cleanRef;
                 }
                 
                 // Hide the second character of the umlaut pair (the 'e' in 'oe')
-                if (i > 0 && originalToTransformedMap['umlaut_' + (i-1)]) {
+                if (i > 0 && originalToTransformedMap && originalToTransformedMap['umlaut_' + (i-1)]) {
                   // Make this element completely invisible and take no space
                   letterSpan.style.display = 'none'; 
                   letterSpan.innerHTML = ''; 
@@ -645,12 +711,19 @@ const isCompleteMatch = cleanInput === cleanRef;
         
         // Handle unmatched reference characters (like 'c' in 's[c]höner')
         // But don't reveal what they are - just indicate something is missing
+        
+        // Add defensive check for alignmentResult
+        if (!alignmentResult || !alignmentResult.refPositionsMatched) {
+          logger.warn('alignmentResult missing or incomplete when handling unmatched refs', { alignmentResult });
+          return; // Skip this part if we don't have the alignment data
+        }
+        
         for (let i = 0; i < refWord.length; i++) {
           if (!alignmentResult.refPositionsMatched.has(i)) {
             // NEW: Skip missing character indicators outside substring region for substring matches
-            if (alignmentResult.isSubstringMatch) {
+            if (alignmentResult.isSubstringMatch && alignmentResult.substringPosition !== undefined) {
               const substringStart = alignmentResult.substringPosition;
-              const substringEnd = substringStart + transformedInputWord.length;
+              const substringEnd = substringStart + (transformedInputWord ? transformedInputWord.length : 0);
               
               // If this missing character is outside the substring region, don't show an indicator
               if (i < substringStart || i >= substringEnd) {
@@ -663,8 +736,10 @@ const isCompleteMatch = cleanInput === cleanRef;
               i, refWord, alignmentResult.refPositionsMatched
             );
             
-            console.log('[DEBUG] Missing char at ref pos', i, 
-                      'insert indicator at position', insertPosition);
+            logger.debug('Missing character', { 
+                      refPosition: i, 
+                      insertPosition 
+                    });
             
             if (insertPosition >= 0 && insertPosition < letterPlaceholders.length) {
               const letterSpan = letterPlaceholders[insertPosition];
@@ -672,7 +747,7 @@ const isCompleteMatch = cleanInput === cleanRef;
               // Special handling for "sh" vs "sch" case
               if (refWord[i] === 'c' && i === 1 && refWord.startsWith('sch') && 
                   transformedInputWord.startsWith('sh')) {
-                console.log('[DEBUG] Special handling for missing character in "sch"');
+                logger.debug('Special handling for missing character in "sch"');
                 
                 // Add a class to indicate a missing letter but don't reveal what it is
                 letterSpan.classList.add('missing-between');
@@ -684,7 +759,7 @@ const isCompleteMatch = cleanInput === cleanRef;
                 
                 // Ensure surrounding characters ('s' and 'h') are marked as correct
                 if (insertPosition > 0 && insertPosition + 1 < letterPlaceholders.length) {
-                  console.log('[DEBUG] Ensuring surrounding characters are properly marked');
+                  logger.debug('Ensuring surrounding characters are properly marked');
                   
                   // Mark 's' as correct (it's before the missing 'c')
                   const prevLetterSpan = letterPlaceholders[insertPosition - 1];
@@ -726,43 +801,12 @@ const isCompleteMatch = cleanInput === cleanRef;
       }
     }
   });
+  } catch (error) {
+    logger.error('Error in updateReferenceMappingDisplay', error);
+  }
 }
 
-/**
- * Apply German input transformations for words
- * @param {string} input - Raw input text
- * @returns {string} - Transformed text with German character replacements
- */
-// Deprecated: use transformSpecialCharacters from textNormalizer.js instead
-function transformGermanInput(input) {
-  if (!input) return '';
-  
-  let transformed = input.toLowerCase();
-  
-  // Handle umlauts
-  transformed = transformed.replace(/ae/g, 'ä')
-                          .replace(/oe/g, 'ö')
-                          .replace(/ue/g, 'ü')
-                          .replace(/a:/g, 'ä')
-                          .replace(/o:/g, 'ö')
-                          .replace(/u:/g, 'ü')
-                          .replace(/a\//g, 'ä')
-                          .replace(/o\//g, 'ö')
-                          .replace(/u\//g, 'ü');
-  
-  // Handle ß (sharp s)
-  transformed = transformed.replace(/s:/g, 'ß')
-                          .replace(/s\//g, 'ß')
-                          .replace(/ss/g, 'ß');
-                         
-  // Handle capital B as ß in middle or end of word
-  transformed = transformed.replace(/(\w)B(\w|$)/g, '$1ß$2');
-  
-  // NEW: Special case for "sh" -> "sch" transformation
-  transformed = transformed.replace(/sh/g, 'sch');
-  
-  return transformed;
-}
+// Removed deprecated transformGermanInput function - use transformSpecialCharacters from textNormalizer.js instead
 
 /**
  * Calculate similarity between two strings using a combination of bigrams and trigrams
@@ -770,70 +814,7 @@ function transformGermanInput(input) {
  * @param {string} str2 - Second string (should be transformed already)
  * @returns {number} - Similarity score between 0 and 1
  */
-function calculateSimilarityScore(str1, str2) {
-  if (!str1 || !str2) return 0;
-  if (str1 === str2) return 1.0;
-
-  // Ensure strings are normalized before comparison
-  str1 = transformSpecialCharacters(str1.toLowerCase());
-  str2 = transformSpecialCharacters(str2.toLowerCase());
-
-  // Create character n-grams (both bigrams and trigrams)
-  const getBigrams = str => {
-    const bigrams = {};
-    for (let i = 0; i < str.length - 1; i++) {
-      const bg = str.substring(i, i + 2);
-      bigrams[bg] = (bigrams[bg] || 0) + 1;
-    }
-    return bigrams;
-  };
-
-  const getTrigrams = str => {
-    const trigrams = {};
-    for (let i = 0; i < str.length - 2; i++) {
-      const tg = str.substring(i, i + 3);
-      trigrams[tg] = (trigrams[tg] || 0) + 1;
-    }
-    return trigrams;
-  };
-
-  // Calculate bigram similarity
-  const bigrams1 = getBigrams(str1);
-  const bigrams2 = getBigrams(str2);
-
-  let sharedBigrams = 0;
-  let totalBigrams = 0;
-
-  for (const bg in bigrams1) {
-    if (bigrams2[bg]) sharedBigrams += Math.min(bigrams1[bg], bigrams2[bg]);
-    totalBigrams += bigrams1[bg];
-  }
-  for (const bg in bigrams2) {
-    totalBigrams += bigrams2[bg];
-  }
-
-  // Calculate trigram similarity
-  const trigrams1 = getTrigrams(str1);
-  const trigrams2 = getTrigrams(str2);
-
-  let sharedTrigrams = 0;
-  let totalTrigrams = 0;
-
-  for (const tg in trigrams1) {
-    if (trigrams2[tg]) sharedTrigrams += Math.min(trigrams1[tg], trigrams2[tg]);
-    totalTrigrams += trigrams1[tg];
-  }
-  for (const tg in trigrams2) {
-    totalTrigrams += trigrams2[tg];
-  }
-
-  // Dice coefficients
-  const bigramDice = sharedBigrams > 0 ? (2 * sharedBigrams) / totalBigrams : 0;
-  const trigramDice = sharedTrigrams > 0 ? (2 * sharedTrigrams) / totalTrigrams : 0;
-
-  // Combined score: give more weight to trigrams
-  return (trigramDice * 0.7 + bigramDice * 0.3);
-}
+// Function removed to use the imported calculateSimilarityScore from textComparison/similarityScoring.js
 
 /**
  * Find the best alignment between two strings with detailed information
@@ -1066,3 +1047,15 @@ function handleShPattern(wordElement, inputWord, transformedInputWord, refWord) 
     letterPlaceholders[1].classList.add('correct');
   }
 }
+
+/**
+ * Compares two words and returns alignment information
+ * This function has been moved to textComparison/wordComparisonService.js
+ * and is now imported from the textComparison/index.js file
+ */
+
+/**
+ * Find the best matching reference word for an input word
+ * This function has been moved to textComparison/wordComparisonService.js
+ * and is now imported from the textComparison/index.js file
+ */

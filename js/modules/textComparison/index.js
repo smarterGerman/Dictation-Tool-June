@@ -5,8 +5,11 @@
 
 import { findBestWordMatches, generateHighlightedHTML } from './wordMatcher.js';
 import { calculateSimilarityScore, levenshteinDistance } from './similarityScoring.js';
-import { normalizeText, normalizeWord, transformSpecialCharacters, notifySegmentChange, getTimeSinceSegmentChange } from './textNormalizer.js';
+import { normalizeText, normalizeWord, transformSpecialCharacters, notifySegmentChange, getTimeSinceSegmentChange, createTextNormalizer } from './textNormalizer.js';
 import { processInput, processInputWithCharacterTracking } from './inputProcessor.js';
+import { createAlignment, DEFAULT_ALIGNMENT_RESULT } from './alignmentUtility.js';
+import { createAdvancedAlignment, alignWords } from './textAlignmentService.js';
+import { compareWords, findBestMatchingReferenceWord } from './wordComparisonService.js';
 
 // Function to generate HTML for results (needed by resultsScreen.js)
 export function generateResultHTML(input, referenceText) {
@@ -43,5 +46,16 @@ export {
   notifySegmentChange,
   getTimeSinceSegmentChange,
   processInput,
-  processInputWithCharacterTracking
+  processInputWithCharacterTracking,
+  createTextNormalizer,
+  createAlignment,
+  DEFAULT_ALIGNMENT_RESULT,
+  
+  // Export new advanced alignment functions
+  createAdvancedAlignment,
+  alignWords,
+  
+  // Word comparison functions
+  compareWords,
+  findBestMatchingReferenceWord
 };

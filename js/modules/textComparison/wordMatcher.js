@@ -18,7 +18,7 @@ import stateManager from '../utils/stateManager.js';
  */
 export function findBestWordMatches(expectedWords, actualWords, options = {}) {
   // LOG: Entry
-  console.log('[findBestWordMatches] called', { expectedWords, actualWords, options });
+  // console.log('[findBestWordMatches] called', { expectedWords, actualWords, options });
   
   if (!expectedWords || !expectedWords.length) return [];
   if (!actualWords || !actualWords.length) {
@@ -77,13 +77,13 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
           : true;  // If not case-sensitive, don't check case
 
         // Debug log for capitalization checking
-        console.log('[DEBUG] Word matching capitalization check:', { 
-          expected: expectedWords[i], 
-          actual: actualWords[j], 
-          capitalizationSensitive: capitalizationSensitive,
-          isExactMatch: expectedWords[i] === actualWords[j],
-          isExactCapitalizationMatch: isExactCapitalizationMatch
-        });
+        // console.log('[DEBUG] Word matching capitalization check:', { 
+        //   expected: expectedWords[i], 
+        //   actual: actualWords[j], 
+        //   capitalizationSensitive: capitalizationSensitive,
+        //   isExactMatch: expectedWords[i] === actualWords[j],
+        //   isExactCapitalizationMatch: isExactCapitalizationMatch
+        // });
 
         // Determine status based on similarity AND capitalization when enabled
         let status;
@@ -98,7 +98,7 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
         }
         
         // Add debug info
-        console.log(`[CRITICAL DEBUG] Word "${expectedWords[i]}" vs "${actualWords[j]}": similarity=${similarity}, capSensitive=${capitalizationSensitive}, status=${status}`);
+        // console.log(`[CRITICAL DEBUG] Word "${expectedWords[i]}" vs "${actualWords[j]}": similarity=${similarity}, capSensitive=${capitalizationSensitive}, status=${status}`);
           
         results[i] = {
           expected: expectedWords[i],
@@ -106,6 +106,14 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
           status: status,
           similarity: similarity
         };
+        // LOG: Matcher output for each word
+        console.log('[MATCHER] Word match:', {
+          expected: expectedWords[i],
+          actual: actualWords[j],
+          status,
+          similarity,
+          capitalizationSensitive
+        });
 
         break;
       }

@@ -181,9 +181,7 @@ export function normalizeWord(word) {
   // First transform special characters
   const transformed = transformSpecialCharacters(word);
   // Then normalize for comparison
-  // COMMENTED OUT: Remove punctuation
-  // return transformed.toLowerCase().replace(/[.,;:!?()[\]{}'"–—-]/g, '').trim();
-  return transformed.toLowerCase().trim();
+  return transformed.toLowerCase();
 }
 
 /**
@@ -198,8 +196,6 @@ export function normalizeText(text) {
   // First transform special characters
   const transformed = transformSpecialCharacters(text);
   // Then normalize for comparison
-  // COMMENTED OUT: Remove punctuation
-  // return transformed.toLowerCase().replace(/[.,;:!?()[\]{}'"–—-]/g, '').replace(/\s+/g, ' ').trim();
   return transformed.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 

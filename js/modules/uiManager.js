@@ -18,8 +18,10 @@ import {
 import { createLogger, LOG_LEVELS } from './utils/logger.js';
 // Import the state manager
 import stateManager from './utils/stateManager.js';
-import { handleShPattern } from './textComparison/uiHelpers.js';
-import { findBestAlignment, createTransformationMap, findInsertPositionForMissingChar } from './textComparison/alignmentUtility.js';
+
+function isCapitalizationSensitive() {
+  return stateManager.getState('comparison')?.capitalizationSensitive ?? false;
+}
 
 // Create a logger for this module
 const logger = createLogger('uiManager');
@@ -238,19 +240,18 @@ export function generatePlaceholdersForReference(referenceText) {
     const wordSpan = document.createElement('span');
     wordSpan.classList.add('word-placeholder');
     wordSpan.dataset.expectedWord = word;
-    
-    // Create underscores for each letter
+    // Create underscores for each letter, but skip punctuation
     for (let i = 0; i < word.length; i++) {
+      const char = word[i];
+      if (/[.,!?;:()\[\]{}"'«»„“”]/.test(char)) continue; // skip punctuation
       const letterSpan = document.createElement('span');
-      letterSpan.classList.add('letter-placeholder');
+      letterSpan.className = 'letter-placeholder';
       letterSpan.textContent = '_';
-      letterSpan.dataset.position = i;
-      letterSpan.dataset.letter = word[i];
+      letterSpan.dataset.position = i.toString();
+      letterSpan.dataset.letter = char;
       wordSpan.appendChild(letterSpan);
     }
-    
     container.appendChild(wordSpan);
-    
     // Add space between words, but not after the last word
     if (index < words.length - 1) {
       container.appendChild(document.createTextNode(' '));
@@ -422,7 +423,9 @@ export function updateRawInputDisplay(rawInputDisplay, input) {
 }
 
 /**
- * Updates the reference mapping display with disambiguated character-by-character feedback
+ * Updates the reference mapping display with highlighting for correct, misspelled, and missing words.
+ * Ensures that all 'misspelled' words are colored red, regardless of capitalization or spelling error, and regardless of Aa toggle.
+ * Adds a debug log before coloring to confirm the status.
  * @param {HTMLElement} referenceMapRow - The reference mapping display element
  * @param {Object} result - The result from processInputWithCharacterTracking
  * @param {string} referenceText - The reference text
@@ -434,7 +437,7 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
       return;
     }
     // LOG: Entry
-    console.log('[updateReferenceMappingDisplay] called', { result, referenceText });
+    // console.log('[updateReferenceMappingDisplay] called', { result, referenceText });
     // Clear existing content
     referenceMapRow.innerHTML = '';
     // Generate placeholder container for reference
@@ -452,7 +455,7 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
     // LOG: Input and reference words
     const inputWords = result.inputText ? result.inputText.trim().split(/\s+/) : [];
     const refWords = referenceText ? referenceText.trim().split(/\s+/) : [];
-    console.log('[updateReferenceMappingDisplay] inputWords:', inputWords, 'refWords:', refWords);
+    // console.log('[updateReferenceMappingDisplay] inputWords:', inputWords, 'refWords:', refWords);
     if (!inputWords.length || !refWords.length) {
       logger.warn('No words to process in updateReferenceMappingDisplay');
       return;
@@ -462,101 +465,76 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
     inputWords.forEach((inputWord, inputWordIndex) => {
       if (!inputWord) return;
       // LOG: Processing input word
-      console.log('[updateReferenceMappingDisplay] Processing inputWord', inputWord, 'at index', inputWordIndex);
+      // console.log('[updateReferenceMappingDisplay] Processing inputWord', inputWord, 'at index', inputWordIndex);
       // Use our helper function to find the best matching reference word
       const matchResult = findBestMatchingReferenceWord(inputWord, refWords, matchedRefIndices);
       let bestMatchIndex = matchResult.index;
       let bestMatchScore = matchResult.score;
-      let transformedInput = matchResult.transformedInput;
       // LOG: Best match result
-      console.log('[updateReferenceMappingDisplay] matchResult', matchResult);
-      // If we found a match, show the ORIGINAL user input with feedback
+      console.log('[UI] Word mapping:', {
+        inputWord,
+        bestMatchIndex,
+        bestMatchScore,
+        matchStatus: result.words?.[bestMatchIndex]?.status,
+        matchResult
+      });
       if (bestMatchIndex !== -1 && bestMatchScore > 0.5) {
         const wordElements = placeholderContainer.querySelectorAll('.word-placeholder');
         if (bestMatchIndex < wordElements.length) {
           const wordElement = wordElements[bestMatchIndex];
           let letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-          // Get capitalization sensitivity
+          const wordStatus = result.words?.[bestMatchIndex]?.status;
           const capitalizationSensitive = isCapitalizationSensitive();
-          // Only lowercase if sensitivity is OFF
           const refWord = capitalizationSensitive ? refWords[bestMatchIndex] : refWords[bestMatchIndex].toLowerCase();
           let transformedInputWord = capitalizationSensitive ? transformSpecialCharacters(inputWord) : transformSpecialCharacters(inputWord.toLowerCase());
-          // LOG: Word comparison
-          console.log('[updateReferenceMappingDisplay] Comparing', { inputWord, transformedInputWord, refWord });
-          // --- FIX: Ensure enough placeholders for all input characters ---
-          if (inputWord.length > letterPlaceholders.length) {
-            for (let i = letterPlaceholders.length; i < inputWord.length; i++) {
-              const newPlaceholder = document.createElement('span');
-              newPlaceholder.className = 'letter-placeholder';
-              newPlaceholder.textContent = '_';
-              newPlaceholder.dataset.position = i.toString();
-              newPlaceholder.dataset.letter = inputWord[i] || '';
-              wordElement.appendChild(newPlaceholder);
-            }
-            // Refresh NodeList after appending
-            letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+          // Ensure enough placeholders for all input characters, but skip punctuation
+          for (let i = letterPlaceholders.length; i < inputWord.length; i++) {
+            const char = inputWord[i];
+            if (/[.,!?;:()\[\]{}"'«»„“”]/.test(char)) continue; // skip punctuation
+            const newPlaceholder = document.createElement('span');
+            newPlaceholder.className = 'letter-placeholder';
+            newPlaceholder.textContent = '_';
+            newPlaceholder.dataset.position = i.toString();
+            newPlaceholder.dataset.letter = char || '';
+            wordElement.appendChild(newPlaceholder);
           }
-          // LOG: Letter placeholders
-          console.log('[updateReferenceMappingDisplay] letterPlaceholders', letterPlaceholders);
-          // transformedInputWord already set with capitalization sensitivity above
-          // Special case: input and reference only differ by trailing punctuation
-          // const textNormalizer = createTextNormalizer();
-          // const inputNoPunct = textNormalizer.removePunctuation(inputWord);
-          // const refNoPunct = textNormalizer.removePunctuation(refWord);
-
-          // console.log("[CRITICAL DEBUG] Special case check:", {
-          //   inputWord, refWord, inputNoPunct, refNoPunct, 
-          //   match: inputNoPunct === refNoPunct,
-          //   capitalizationSensitive: isCapitalizationSensitive()
-          // });
-
-          // Fix: respect capitalization sensitivity setting when comparing stripped words
-          // const capitalizationMatches = capitalizationSensitive ? 
-          //   (inputNoPunct === refNoPunct) : 
-          //   (inputNoPunct.toLowerCase() === refNoPunct.toLowerCase());
-          // if (capitalizationMatches) {
-            // If capitalization is sensitive and the words differ only by case,
-            // we need to check each character individually to mark misspellings
-            if (capitalizationSensitive && inputWord !== refWord) {
-              for (let i = 0; i < Math.min(inputWord.length, refWord.length); i++) {
-                const letterSpan = letterPlaceholders[i];
-                if (letterSpan) {
-                  letterSpan.textContent = inputWord[i];
-                  letterSpan.classList.add('revealed');
-                  letterSpan.setAttribute('data-original-char', inputWord[i]);
-                  
-                  // Mark as misspelled if case doesn't match
-                  if (inputWord[i] !== refWord[i] && inputWord[i].toLowerCase() === refWord[i].toLowerCase()) {
-                    letterSpan.classList.add('misspelled');
-                  } else {
-                    letterSpan.classList.remove('misspelled');
-                    letterSpan.classList.add('correct');
-                  }
-                }
-              }
-            } else {
-              // No capitalization sensitivity or capitalization matches exactly
-              for (let i = 0; i < Math.min(inputWord.length, refWord.length); i++) {
-                const letterSpan = letterPlaceholders[i];
-                if (letterSpan) {
-                  letterSpan.classList.remove('misspelled');
+          letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+          // --- PATCH: Highlight only differing letters as misspelled if word is misspelled ---
+          if (wordStatus === 'misspelled') {
+            for (let i = 0; i < Math.max(inputWord.length, refWord.length); i++) {
+              const letterSpan = letterPlaceholders[i];
+              if (!letterSpan) continue;
+              const inputChar = inputWord[i];
+              const refChar = refWord[i];
+              // Ignore punctuation for both input and reference
+              const isPunct = c => /[.,!?;:()\[\]{}"'«»„“”]/.test(c);
+              if (typeof inputChar !== 'undefined' && isPunct(inputChar)) continue;
+              if (typeof refChar !== 'undefined' && isPunct(refChar)) continue;
+              if (typeof inputChar !== 'undefined') {
+                letterSpan.textContent = inputChar;
+                letterSpan.classList.add('revealed');
+                letterSpan.setAttribute('data-original-char', inputChar);
+                if (
+                  typeof refChar !== 'undefined' &&
+                  ((capitalizationSensitive && inputChar === refChar) ||
+                   (!capitalizationSensitive && inputChar.toLowerCase() === refChar?.toLowerCase()))
+                ) {
                   letterSpan.classList.add('correct');
-                  letterSpan.textContent = inputWord[i];
-                  letterSpan.classList.add('revealed');
-                  letterSpan.setAttribute('data-original-char', inputWord[i]);
+                } else {
+                  letterSpan.classList.add('misspelled');
                 }
+              } else if (typeof refChar !== 'undefined') {
+                // Input is shorter than reference, mark missing letters as misspelled
+                letterSpan.textContent = refChar;
+                letterSpan.classList.add('revealed', 'misspelled');
+                letterSpan.setAttribute('data-original-char', '');
               }
             }
-            // Optionally, mark any extra trailing punctuation as missing or correct as you wish
             return;
-          // }
-          // Use our helper function to compare words with proper error handling
+          }
+          // If we have a complete match ignoring punctuation, show all as correct
           const comparison = compareWords(inputWord, refWord);
-          // Only use substringStart if needed for partial matches
-          let substringStart = 0;
-          // Early return if it's a complete match ignoring punctuation
           if (comparison.isCleanMatch) {
-            logger.debug('Complete match ignoring punctuation:', { inputWord, refWord });
             for (let i = 0; i < inputWord.length; i++) {
               const refPos = i;
               if (refPos < letterPlaceholders.length) {
@@ -569,12 +547,11 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
                 }
               }
             }
-            // Optionally, mark any extra trailing punctuation as missing or correct as you wish
             return;
           }
           // LOG: Per-letter comparison
           for (let i = 0; i < inputWord.length; i++) {
-            const refPos = substringStart + i;
+            const refPos = i;
             if (refPos < letterPlaceholders.length) {
               const letterSpan = letterPlaceholders[refPos];
               letterSpan.textContent = inputWord[i];
@@ -595,13 +572,15 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
                 void letterSpan.offsetHeight;
               } else {
                 letterSpan.classList.add('misspelled');
-                console.log('Misspelled letter:', inputWord[i], 'should be', refWord[refPos], 'at', refPos);
+                // console.log('Misspelled letter:', inputWord[i], 'should be', refWord[refPos], 'at', refPos);
               }
             }
           }
         }
       }
     });
+    // After all mapping and coloring is done
+    console.log('[UI] Reference map row innerHTML:', referenceMapRow.innerHTML);
   } catch (error) {
     logger.error('Error in updateReferenceMappingDisplay', error);
     console.error('[updateReferenceMappingDisplay] Exception:', error);
@@ -616,49 +595,3 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
  * @param {string} str2 - Second string (should be transformed already)
  * @returns {number} - Similarity score between 0 and 1
  */
-// Function removed to use the imported calculateSimilarityScore from textComparison/similarityScoring.js
-
-// Alignment and mapping helpers are now imported from alignmentUtility.js
-// (findBestAlignment, createTransformationMap, findInsertPositionForMissingChar)
-
-/**
- * Handle special case for "sh" vs "sch" pattern
- * @param {HTMLElement} wordElement - The word element to update
- * @param {string} inputWord - The original input word
- * @param {string} transformedInputWord - The transformed input word
- * @param {string} refWord - The reference word
- */
-// handleShPattern is now imported from textComparison/uiHelpers.js
-
-// Capitalization toggle state (read from stateManager)
-function isCapitalizationSensitive() {
-  const value = stateManager.getState('comparison').capitalizationSensitive === true;
-  console.log(`[DEBUG] isCapitalizationSensitive() called, returning: ${value}`);
-  return value;
-}
-
-// Listen for capitalization toggle changes and re-render input/results as needed
-if (typeof window !== 'undefined' && window.document) {
-  document.addEventListener('capitalizationToggleChanged', (event) => {
-    logger.info('Capitalization toggle changed, updating UI');
-    
-    // Get current display elements that need updating
-    const resultContainer = document.querySelector('.result-container');
-    const refTextDisplay = document.querySelector('.reference-text-display');
-    const currentResult = stateManager.getState('comparison').result;
-    const referenceText = stateManager.getState('comparison').reference;
-    
-    // If we have active content to refresh
-    if (resultContainer && refTextDisplay && currentResult && referenceText) {
-      // Re-render the current results with updated capitalization sensitivity
-      updateInputDisplay(currentResult, resultContainer, referenceText);
-      
-      // Also update any placeholder or per-letter feedback
-      const placeholderContainer = document.querySelector('.reference-placeholders');
-      const referenceMapRow = document.querySelector('.reference-map-row');
-      if (placeholderContainer && referenceMapRow) {
-        updateReferenceMappingDisplay(referenceMapRow, currentResult, referenceText);
-      }
-    }
-  });
-}

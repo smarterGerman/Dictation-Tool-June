@@ -501,16 +501,16 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
           letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
           // --- PATCH: Highlight only differing letters as misspelled if word is misspelled ---
           if (wordStatus === 'misspelled') {
-            for (let i = 0; i < Math.max(inputWord.length, refWord.length); i++) {
+            for (let i = 0; i < letterPlaceholders.length; i++) {
               const letterSpan = letterPlaceholders[i];
-              if (!letterSpan) continue;
-              const inputChar = inputWord[i];
-              const refChar = refWord[i];
-              // Ignore punctuation for both input and reference
-              const isPunct = c => /[.,!?;:()\[\]{}"'«»„“”]/.test(c);
-              if (typeof inputChar !== 'undefined' && isPunct(inputChar)) continue;
-              if (typeof refChar !== 'undefined' && isPunct(refChar)) continue;
-              if (typeof inputChar !== 'undefined') {
+              // Only reveal letters that the user has typed
+              if (i < inputWord.length) {
+                const inputChar = inputWord[i];
+                const refChar = refWord[i];
+                // Ignore punctuation for both input and reference
+                const isPunct = c => /[.,!?;:()\[\]{}"'«»„“”]/.test(c);
+                if (typeof inputChar !== 'undefined' && isPunct(inputChar)) continue;
+                if (typeof refChar !== 'undefined' && isPunct(refChar)) continue;
                 letterSpan.textContent = inputChar;
                 letterSpan.classList.add('revealed');
                 letterSpan.setAttribute('data-original-char', inputChar);
@@ -523,11 +523,11 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
                 } else {
                   letterSpan.classList.add('misspelled');
                 }
-              } else if (typeof refChar !== 'undefined') {
-                // Input is shorter than reference, mark missing letters as misspelled
-                letterSpan.textContent = refChar;
-                letterSpan.classList.add('revealed', 'misspelled');
-                letterSpan.setAttribute('data-original-char', '');
+              } else {
+                // Do not reveal or mark as misspelled, keep as underscore
+                letterSpan.textContent = '_';
+                letterSpan.className = 'letter-placeholder';
+                letterSpan.removeAttribute('data-original-char');
               }
             }
             return;

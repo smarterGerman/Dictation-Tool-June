@@ -36,7 +36,7 @@ export function processInput(referenceText, userInput) {
   }
 
   // Capitalization sensitivity from stateManager
-  const capitalizationSensitive = stateManager.getState('capitalizationSensitive') ?? false;
+  const capitalizationSensitive = stateManager.getState('comparison').capitalizationSensitive ?? false;
 
   // Split into words, preserving punctuation as part of words
   const expectedWords = referenceText.trim().split(/\s+/);

@@ -10,8 +10,6 @@ import { processInput, processInputWithCharacterTracking } from './inputProcesso
 import { createAlignment, DEFAULT_ALIGNMENT_RESULT } from './alignmentUtility.js';
 import { createAdvancedAlignment, alignWords } from './textAlignmentService.js';
 import { compareWords, findBestMatchingReferenceWord } from './wordComparisonService.js';
-import { createLogger } from '../utils/logger.js';
-import stateManager from '../utils/stateManager.js';
 
 // Function to generate HTML for results (needed by resultsScreen.js)
 export function generateResultHTML(input, referenceText) {
@@ -34,19 +32,6 @@ export function generateResultHTML(input, referenceText) {
   }
   
   return html.trim();
-}
-
-// Debug logging function to help trace capitalization issues
-export function logCapitalizationState() {
-  // Helper function to check if capitalization is enabled
-  const logger = createLogger('textComparison');
-  const capSensitive = stateManager.getState('ui')?.capitalizationSensitive;
-  logger.info('Capitalization sensitivity:', {
-    isEnabled: capSensitive === true,
-    fromState: capSensitive
-  });
-  
-  return capSensitive === true;
 }
 
 // Export all the functions

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capitalization Toggle Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+    }
+    #output {
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 0;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <h1>Capitalization Toggle Test</h1>
+  <p>This page tests the functionality of the capitalization sensitivity toggle</p>
+  
+  <button id="runTest">Run Test</button>
+  <button id="toggleCapitalization">Toggle Capitalization Sensitivity</button>
+  
+  <div>
+    <label for="referenceWord">Reference Word:</label>
+    <input type="text" id="referenceWord" value="Es">
+  </div>
+  <div>
+    <label for="inputWord">Input Word:</label>
+    <input type="text" id="inputWord" value="es">
+  </div>
+  <div>
+    <button id="compareWords">Compare Words</button>
+  </div>
+  
+  <h2>Output</h2>
+  <div id="output"></div>
+  
+  <script type="module">
+    import { testCapitalizationToggle } from './test-capitalization.js';
+    import stateManager from './modules/utils/stateManager.js';
+    import { compareWords } from './modules/textComparison/wordComparisonService.js';
+    
+    // Capture console.log output to display in our output div
+    const outputDiv = document.getElementById('output');
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+    
+    console.log = function(...args) {
+      originalConsoleLog.apply(console, args);
+      outputDiv.textContent += args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+      ).join(' ') + '\n';
+      outputDiv.scrollTop = outputDiv.scrollHeight;
+    };
+    
+    console.error = function(...args) {
+      originalConsoleError.apply(console, args);
+      outputDiv.innerHTML += '<span style="color: red;">' + 
+        args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ') + 
+        '</span>\n';
+      outputDiv.scrollTop = outputDiv.scrollHeight;
+    };
+    
+    // Set up event handlers
+    document.getElementById('runTest').addEventListener('click', () => {
+      outputDiv.textContent = '';
+      testCapitalizationToggle();
+    });
+    
+    document.getElementById('toggleCapitalization').addEventListener('click', () => {
+      const currentState = stateManager.getState('comparison');
+      const newValue = !currentState.capitalizationSensitive;
+      stateManager.updateState('comparison', { capitalizationSensitive: newValue });
+      console.log(`Capitalization sensitivity set to: ${newValue}`);
+    });
+    
+    document.getElementById('compareWords').addEventListener('click', () => {
+      const refWord = document.getElementById('referenceWord').value;
+      const inputWord = document.getElementById('inputWord').value;
+      const isSensitive = stateManager.getState('comparison').capitalizationSensitive;
+      
+      console.log(`Comparing "${inputWord}" with "${refWord}" (capitalization sensitive: ${isSensitive})`);
+      const result = compareWords(inputWord, refWord, { capitalizationSensitive: isSensitive });
+      console.log('Result:', result);
+    });
+    
+    // Initialize state
+    if (stateManager.getState('comparison').capitalizationSensitive === undefined) {
+      stateManager.updateState('comparison', { capitalizationSensitive: false });
+      console.log('Initialized capitalization sensitivity to false');
+    } else {
+      console.log('Current capitalization sensitivity:', stateManager.getState('comparison').capitalizationSensitive);
+    }
+  </script>
+</body>
+</html>

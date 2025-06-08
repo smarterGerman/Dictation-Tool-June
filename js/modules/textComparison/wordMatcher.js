@@ -32,7 +32,7 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
   }
 
   // Capitalization sensitivity from options or stateManager
-  const capitalizationSensitive = options.capitalizationSensitive ?? stateManager.get('capitalizationSensitive') ?? false;
+  const capitalizationSensitive = options.capitalizationSensitive ?? stateManager.getState('comparison').capitalizationSensitive ?? false;
 
   // Create normalized versions of words for comparison
   const normalizedExpected = expectedWords.map(w => normalizeWord(w));

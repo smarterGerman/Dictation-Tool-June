@@ -81,15 +81,29 @@ export function setupUI(audio, segmentState, inputManager) {
     const capitalizationToggle = document.getElementById('capitalization-toggle');
     const capitalizationLabel = document.getElementById('capitalization-toggle-label');
     if (capitalizationToggle && capitalizationLabel) {
-        // Set initial state from stateManager or default (false)
-        let isCapitalizationSensitive = stateManager.getState('ui')?.capitalizationSensitive ?? false;
+        // Initialize comparison state if it's not already set
+        if (stateManager.getState('comparison').capitalizationSensitive === undefined) {
+            stateManager.updateState('comparison', { capitalizationSensitive: false });
+        }
+        
+        // Get current state
+        let isCapitalizationSensitive = stateManager.getState('comparison').capitalizationSensitive ?? false;
         updateCapitalizationToggleUI(isCapitalizationSensitive);
 
         capitalizationToggle.addEventListener('click', () => {
+            // Toggle the state
             isCapitalizationSensitive = !isCapitalizationSensitive;
-            stateManager.updateState('ui', { capitalizationSensitive: isCapitalizationSensitive });
+            
+            // Update the state manager - only in the comparison section where it's actually used
+            stateManager.updateState('comparison', { capitalizationSensitive: isCapitalizationSensitive });
+            
+            // Update the UI to reflect the new state
             updateCapitalizationToggleUI(isCapitalizationSensitive);
-            document.dispatchEvent(new CustomEvent('capitalizationToggleChanged', { detail: { isCapitalizationSensitive } }));
+            
+            // Dispatch event to notify other components
+            document.dispatchEvent(new CustomEvent('capitalizationToggleChanged', { 
+                detail: { isCapitalizationSensitive } 
+            }));
         });
     }
 

@@ -69,15 +69,6 @@
   text-decoration: underline wavy #e74c3c;
 }
 
-.word-placeholder.capitalization-error,
-.letter-placeholder.capitalization-error {
-  color: #ff5722 !important; /* More distinctive orange-red for capitalization errors */
-  text-decoration: underline wavy #ff5722;
-  background-color: rgba(255, 87, 34, 0.1) !important; /* Light highlight background */
-  animation: misspelledShake 0.2s ease-in-out;
-  border-radius: 2px; /* Rounded edges for the highlight */
-}
-
 .letter-placeholder {
   display: inline-block;
   margin: 0 2px;

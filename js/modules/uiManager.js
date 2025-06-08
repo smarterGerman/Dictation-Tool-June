@@ -476,8 +476,11 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
         if (bestMatchIndex < wordElements.length) {
           const wordElement = wordElements[bestMatchIndex];
           let letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-          const refWord = refWords[bestMatchIndex].toLowerCase();
-          let transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
+          // Get capitalization sensitivity
+          const capitalizationSensitive = isCapitalizationSensitive();
+          // Only lowercase if sensitivity is OFF
+          const refWord = capitalizationSensitive ? refWords[bestMatchIndex] : refWords[bestMatchIndex].toLowerCase();
+          let transformedInputWord = capitalizationSensitive ? transformSpecialCharacters(inputWord) : transformSpecialCharacters(inputWord.toLowerCase());
           // LOG: Word comparison
           console.log('[updateReferenceMappingDisplay] Comparing', { inputWord, transformedInputWord, refWord });
           // --- FIX: Ensure enough placeholders for all input characters ---
@@ -495,8 +498,7 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
           }
           // LOG: Letter placeholders
           console.log('[updateReferenceMappingDisplay] letterPlaceholders', letterPlaceholders);
-          // Transform the entire input word once
-          transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
+          // transformedInputWord already set with capitalization sensitivity above
           // Special case: input and reference only differ by trailing punctuation
           const textNormalizer = createTextNormalizer();
           const inputNoPunct = textNormalizer.removePunctuation(inputWord);
@@ -545,11 +547,15 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
               letterSpan.textContent = inputWord[i];
               letterSpan.classList.add('revealed');
               letterSpan.setAttribute('data-original-char', inputWord[i]);
-              // Fix: Check for undefined before calling toLowerCase
+              // Use capitalization sensitivity for per-letter feedback
+              const capitalizationSensitive = isCapitalizationSensitive();
               if (
                 typeof inputWord[i] !== 'undefined' &&
                 typeof refWord[refPos] !== 'undefined' &&
-                inputWord[i].toLowerCase() === refWord[refPos].toLowerCase()
+                (
+                  (capitalizationSensitive && inputWord[i] === refWord[refPos]) ||
+                  (!capitalizationSensitive && inputWord[i].toLowerCase() === refWord[refPos].toLowerCase())
+                )
               ) {
                 letterSpan.classList.add('correct');
                 // Force reflow to ensure style is applied
@@ -593,15 +599,33 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
 
 // Capitalization toggle state (read from stateManager)
 function isCapitalizationSensitive() {
-  return stateManager.get('capitalizationSensitive') === true;
+  const value = stateManager.getState('comparison').capitalizationSensitive === true;
+  console.log(`[DEBUG] isCapitalizationSensitive() called, returning: ${value}`);
+  return value;
 }
 
 // Listen for capitalization toggle changes and re-render input/results as needed
 if (typeof window !== 'undefined' && window.document) {
-  document.addEventListener('capitalizationToggleChanged', () => {
-    // You may want to trigger a re-render of the current segment/input/results here
-    // For now, just log for debugging
-    logger.info('Capitalization toggle changed, UI should update');
-    // TODO: Call the appropriate update functions for input/results
+  document.addEventListener('capitalizationToggleChanged', (event) => {
+    logger.info('Capitalization toggle changed, updating UI');
+    
+    // Get current display elements that need updating
+    const resultContainer = document.querySelector('.result-container');
+    const refTextDisplay = document.querySelector('.reference-text-display');
+    const currentResult = stateManager.getState('comparison').result;
+    const referenceText = stateManager.getState('comparison').reference;
+    
+    // If we have active content to refresh
+    if (resultContainer && refTextDisplay && currentResult && referenceText) {
+      // Re-render the current results with updated capitalization sensitivity
+      updateInputDisplay(currentResult, resultContainer, referenceText);
+      
+      // Also update any placeholder or per-letter feedback
+      const placeholderContainer = document.querySelector('.reference-placeholders');
+      const referenceMapRow = document.querySelector('.reference-map-row');
+      if (placeholderContainer && referenceMapRow) {
+        updateReferenceMappingDisplay(referenceMapRow, currentResult, referenceText);
+      }
+    }
   });
 }

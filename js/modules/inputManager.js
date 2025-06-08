@@ -204,33 +204,32 @@ function handleKeyDown(event) {
  */
 function updateHighlighting(userInput, referenceText, container) {
     try {
+        // LOG: Entry
+        console.log('[updateHighlighting] called', { userInput, referenceText });
         // If referenceText is not provided, get it from the current segment
         if (!referenceText) {
             const segment = getCurrentSegment();
             referenceText = segment ? segment.text : '';
         }
-        
         if (!container) {
             container = document.getElementById(config.highlightContainerId);
         }
-        
         if (!container) return null;
-        
         // Apply transformations to ensure consistency
         const transformedInput = transformSpecialCharacters(userInput);
-        
+        // LOG: Transformed input
+        console.log('[updateHighlighting] transformedInput', transformedInput);
         try {
             // Process input with character-level tracking for better display
             const result = processInputWithCharacterTracking(referenceText, transformedInput);
-            
+            // LOG: Result
+            console.log('[updateHighlighting] processInputWithCharacterTracking result', result);
             // Add the raw input text for display purposes
             result.inputText = transformedInput;
-            
             // Update placeholders based on comparison results
             if (currentPlaceholderContainer) {
                 updatePlaceholders(result, currentPlaceholderContainer);
             }
-            
             return result;
         } catch (error) {
             console.error("Error processing input:", error);

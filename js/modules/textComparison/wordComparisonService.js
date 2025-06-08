@@ -5,6 +5,7 @@
 import { transformSpecialCharacters, createTextNormalizer } from './textNormalizer.js';
 import { calculateSimilarityScore } from './similarityScoring.js';
 import { createLogger } from '../utils/logger.js';
+import stateManager from '../utils/stateManager.js';
 
 const logger = createLogger('wordComparisonService');
 
@@ -12,62 +13,64 @@ const logger = createLogger('wordComparisonService');
  * Compare two words with robust error handling
  * @param {string} inputWord - The input word to compare
  * @param {string} referenceWord - The reference word to compare against
+ * @param {Object} [options] - Optional config (e.g., capitalizationSensitive)
  * @returns {Object} Comparison result with match information
  */
-export function compareWords(inputWord, referenceWord) {
+export function compareWords(inputWord, referenceWord, options = {}) {
+  const capitalizationSensitive = options.capitalizationSensitive ?? stateManager.getState('ui')?.capitalizationSensitive ?? false;
   try {
     // Input validation with detailed logging
     if (!inputWord && !referenceWord) {
       logger.warn('compareWords: Both input and reference words are empty');
       return { isMatch: false, reason: 'both_empty' };
     }
-    
     if (!inputWord) {
       logger.debug('compareWords: Input word is empty', { referenceWord });
       return { isMatch: false, reason: 'input_empty' };
     }
-    
     if (!referenceWord) {
       logger.debug('compareWords: Reference word is empty', { inputWord });
       return { isMatch: false, reason: 'reference_empty' };
     }
-    
     // Normalize both words for comparison
     const textNormalizer = createTextNormalizer();
-    
-    // Handle potential errors in text normalization
     let cleanInput, cleanRef;
     try {
       cleanInput = textNormalizer.removePunctuation(inputWord);
     } catch (error) {
       logger.error('Error removing punctuation from input word', { inputWord, error });
-      cleanInput = inputWord.toLowerCase();
+      cleanInput = inputWord;
     }
-    
     try {
       cleanRef = textNormalizer.removePunctuation(referenceWord);
     } catch (error) {
       logger.error('Error removing punctuation from reference word', { referenceWord, error });
-      cleanRef = referenceWord.toLowerCase();
+      cleanRef = referenceWord;
     }
-    
+    // Case handling
+    let inputForCompare = cleanInput;
+    let refForCompare = cleanRef;
+    if (!capitalizationSensitive) {
+      inputForCompare = inputForCompare.toLowerCase();
+      refForCompare = refForCompare.toLowerCase();
+    }
     // Perform different comparison methods
-    const isExactMatch = inputWord.toLowerCase() === referenceWord.toLowerCase();
-    const isCleanMatch = cleanInput === cleanRef;
-    
+    const isExactMatch = capitalizationSensitive
+      ? inputWord === referenceWord
+      : inputWord.toLowerCase() === referenceWord.toLowerCase();
+    const isCleanMatch = inputForCompare === refForCompare;
     // Transform input word for special character handling
     let transformedInput;
     try {
-      transformedInput = transformSpecialCharacters(inputWord.toLowerCase());
+      transformedInput = transformSpecialCharacters(inputForCompare);
     } catch (error) {
       logger.error('Error transforming input word', { inputWord, error });
-      transformedInput = inputWord.toLowerCase();
+      transformedInput = inputForCompare;
     }
-    
     // Calculate similarity with error handling
     let similarity = 0;
     try {
-      similarity = calculateSimilarityScore(transformedInput, referenceWord.toLowerCase());
+      similarity = calculateSimilarityScore(transformedInput, refForCompare);
     } catch (error) {
       logger.error('Error calculating similarity score', { 
         inputWord, 
@@ -76,18 +79,22 @@ export function compareWords(inputWord, referenceWord) {
         error 
       });
     }
-    
     logger.debug('Word comparison results', { 
-      input: inputWord, 
+      input: inputWord,
       reference: referenceWord, 
       transformedInput,
       cleanInput,
       cleanRef,
       isExactMatch, 
       isCleanMatch, 
-      similarity 
+      similarity,
+      capitalizationSensitive
     });
-    
+    // Capitalization error detection
+    let capitalizationError = false;
+    if (capitalizationSensitive && isCleanMatch && inputWord !== referenceWord) {
+      capitalizationError = true;
+    }
     return {
       isMatch: isExactMatch || isCleanMatch,
       isExactMatch,
@@ -95,7 +102,8 @@ export function compareWords(inputWord, referenceWord) {
       similarity,
       transformedInput,
       cleanInput,
-      cleanRef
+      cleanRef,
+      capitalizationError
     };
   } catch (error) {
     logger.error('Word comparison failed', { error, inputWord, referenceWord });
@@ -143,7 +151,7 @@ export function findBestMatchingReferenceWord(
     // Set default options
     const { 
       similarityThreshold = 0.37, 
-      ignoreCase = true 
+      ignoreCase = !(options.capitalizationSensitive ?? false)
     } = options;
     
     let bestMatchIndex = -1;

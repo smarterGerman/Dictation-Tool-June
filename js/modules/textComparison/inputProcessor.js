@@ -5,6 +5,8 @@
 
 import { normalizeText } from './textNormalizer.js';
 import { findBestWordMatches } from './wordMatcher.js';
+import { findBestAlignment } from './alignmentUtility.js';
+import stateManager from '../utils/stateManager.js';
 
 /**
  * Processes input text and compares it against a reference
@@ -13,6 +15,8 @@ import { findBestWordMatches } from './wordMatcher.js';
  * @return {Object} - Detailed comparison results
  */
 export function processInput(referenceText, userInput) {
+  // LOG: Entry
+  console.log('[processInput] called', { referenceText, userInput });
   if (!referenceText) return { words: [], extraWords: [] };
   if (!userInput) {
     // Return all expected words as missing
@@ -29,20 +33,29 @@ export function processInput(referenceText, userInput) {
       referenceText: referenceText
     };
   }
-  
+
+  // Capitalization sensitivity from stateManager
+  const capitalizationSensitive = stateManager.getState('capitalizationSensitive') ?? false;
+
   // Split into words, preserving punctuation as part of words
   const expectedWords = referenceText.trim().split(/\s+/);
   const actualWords = userInput.trim().split(/\s+/);
-  
+
+  // LOG: Words split
+  console.log('[processInput] expectedWords', expectedWords, 'actualWords', actualWords);
+
   // Find best matches between expected and actual words
-  const matchResult = findBestWordMatches(expectedWords, actualWords);
-  
+  const matchResult = findBestWordMatches(expectedWords, actualWords, { capitalizationSensitive });
+
+  // LOG: matchResult
+  console.log('[processInput] matchResult', matchResult);
+
   // Calculate overall stats
   const correctWords = matchResult.words.filter(w => w.status === 'correct').length;
   const misspelledWords = matchResult.words.filter(w => w.status === 'misspelled').length;
   const missingWords = matchResult.words.filter(w => w.status === 'missing').length;
   const extraWords = matchResult.extraWords ? matchResult.extraWords.length : 0;
-  
+
   // Return rich result object with detailed information
   const result = {
     words: matchResult.words,
@@ -68,6 +81,9 @@ export function processInput(referenceText, userInput) {
     characterMapping: []
   };
   
+  // LOG: Final result
+  console.log('[processInput] result', result);
+
   // Calculate which character in user input maps to which word in reference
   let charIndex = 0;
   for (let i = 0; i < expectedWords.length; i++) {
@@ -97,29 +113,11 @@ export function processInput(referenceText, userInput) {
  * @return {Object} - Detailed comparison results with character mapping
  */
 export function processInputWithCharacterTracking(referenceText, userInput) {
-  // Get standard word matching result
+  // LOG: Entry
+  console.log('[processInputWithCharacterTracking] called', { referenceText, userInput });
   const wordMatchResult = processInput(referenceText, userInput);
-  
-  // Store the original input word order explicitly
-  const inputWords = userInput.trim().split(/\s+/);
-  inputWords.forEach((word, index) => {
-    // Find the corresponding word in the result
-    for (const wordMatch of wordMatchResult.words) {
-      if (wordMatch.word && wordMatch.word.toLowerCase() === word.toLowerCase()) {
-        // Store the original input index
-        wordMatch.inputWordIndex = index;
-        break;
-      }
-    }
-  });
-  
-  // Add character-level tracking
-  wordMatchResult.characterMapping = buildCharacterMapping(
-    wordMatchResult, 
-    referenceText, 
-    userInput
-  );
-  
+  // LOG: Result
+  console.log('[processInputWithCharacterTracking] result', wordMatchResult);
   return wordMatchResult;
 }
 
@@ -163,18 +161,24 @@ function buildCharacterMapping(wordResult, referenceText, userInput) {
     if (matchedWord && matchedWord.status !== 'missing') {
       const refWord = referenceWords[matchedWordIndex];
       
-      // Map each character
+      // Use Levenshtein-based alignment for robust mapping
+      const alignment = findBestAlignment(inputWord, refWord);
+      
+      // Map each character in input to reference using alignment
       for (let i = 0; i < inputWord.length; i++) {
-        const refChar = i < refWord.length ? refWord[i] : null;
+        const transformedPos = alignment.originalToTransformedMap[i];
+        const refPos = transformedPos !== undefined ? alignment.transformedToRefMap[transformedPos] : undefined;
+        const refChar = (refPos !== undefined && refPos >= 0 && refPos < refWord.length) ? refWord[refPos] : null;
         
         charMapping.push({
-          inputWordIndex, 
+          inputWordIndex,
           inputCharIndex: i,
           wordIndex: matchedWordIndex,
-          charIndex: i < refWord.length ? i : -1,
+          charIndex: refPos !== undefined ? refPos : -1,
           char: inputWord[i],
           refChar: refChar,
-          isMatch: refChar && inputWord[i].toLowerCase() === refChar.toLowerCase()
+          isMatch: refChar && inputWord[i].toLowerCase() === refChar.toLowerCase(),
+          alignmentResult: alignment
         });
       }
     } else {

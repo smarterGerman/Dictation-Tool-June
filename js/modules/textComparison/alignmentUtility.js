@@ -16,8 +16,9 @@
 // No ad-hoc regex or string replacements for normalization or special characters should be here.
 // All normalization should use transformSpecialCharacters, normalizeText, or createTextNormalizer from textNormalizer.js.
 
-import { transformSpecialCharacters } from './textNormalizer.js';
+import { transformSpecialCharacters, normalizeWord } from './textNormalizer.js';
 import { createLogger } from '../utils/logger.js';
+import stateManager from '../utils/stateManager.js';
 
 const logger = createLogger('alignmentUtility');
 
@@ -142,36 +143,128 @@ export function createAlignment(inputWord, referenceWord) {
 }
 
 /**
- * Find the best alignment between two strings with detailed information
+ * Levenshtein-based alignment with mapping for German special characters
  * @param {string} input - The input string (user's text)
  * @param {string} reference - The reference string (correct text)
- * @returns {AlignmentResult} Alignment result with detailed information
+ * @returns {AlignmentResult} Alignment result with detailed mapping
  */
 export function findBestAlignment(input, reference) {
-  // ...existing code of findBestAlignment...
+  if (!input || !reference) {
+    logger.warn('Missing input for Levenshtein alignment', { input, reference });
+    return { ...DEFAULT_ALIGNMENT_RESULT };
+  }
+  try {
+    // Normalize both input and reference for robust comparison
+    const normInput = transformSpecialCharacters(input);
+    const normRef = transformSpecialCharacters(reference);
+    const m = normInput.length;
+    const n = normRef.length;
+
+    // DP table for Levenshtein distance
+    const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+    const backtrack = Array.from({ length: m + 1 }, () => Array(n + 1).fill(null));
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = normInput[i - 1] === normRef[j - 1] ? 0 : 1;
+        const del = dp[i - 1][j] + 1;
+        const ins = dp[i][j - 1] + 1;
+        const sub = dp[i - 1][j - 1] + cost;
+        dp[i][j] = Math.min(del, ins, sub);
+        if (dp[i][j] === sub) backtrack[i][j] = 'sub';
+        else if (dp[i][j] === del) backtrack[i][j] = 'del';
+        else backtrack[i][j] = 'ins';
+      }
+    }
+
+    // Backtrack to get mapping
+    let i = m, j = n;
+    const matchedIndices = [];
+    const transformedToRefMap = {};
+    const refPositionsMatched = new Set();
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && backtrack[i][j] === 'sub') {
+        if (normInput[i - 1] === normRef[j - 1]) {
+          matchedIndices.push({ inputPos: i - 1, refPos: j - 1 });
+          transformedToRefMap[i - 1] = j - 1;
+          refPositionsMatched.add(j - 1);
+        }
+        i--; j--;
+      } else if (i > 0 && backtrack[i][j] === 'del') {
+        i--;
+      } else if (j > 0 && backtrack[i][j] === 'ins') {
+        j--;
+      } else {
+        break;
+      }
+    }
+    matchedIndices.reverse();
+
+    // Map original input indices to transformed indices
+    const originalToTransformedMap = createTransformationMap(input, normInput);
+
+    // Determine if this is a substring match
+    const matchedCount = refPositionsMatched.size;
+    const isPartialMatch = matchedCount > 0 && matchedCount < normRef.length;
+    let substringPosition = 0;
+    if (isPartialMatch && matchedIndices.length > 0) {
+      substringPosition = Math.min(...matchedIndices.map(match => match.refPos));
+    }
+
+    return {
+      transformedToRefMap,
+      refPositionsMatched,
+      originalToTransformedMap,
+      isSubstringMatch: isPartialMatch,
+      substringPosition,
+      matchedIndices
+    };
+  } catch (error) {
+    logger.error('Error in Levenshtein alignment', error);
+    return { ...DEFAULT_ALIGNMENT_RESULT };
+  }
 }
 
 /**
  * Create a mapping from original input positions to transformed positions
+ * Handles all German special character expansions (ae→ä, oe→ö, ue→ü, ß→ss, etc.)
  * @param {string} originalInput - The original input string
  * @param {string} transformedInput - The transformed input string
  * @returns {Object} - Mapping object with original positions as keys and transformed positions as values
  */
 export function createTransformationMap(originalInput, transformedInput) {
-  // Maps each character position in the original input to the corresponding position in the transformed input.
-  // Handles cases where special characters are expanded (e.g., 'ß' -> 'ss').
   const map = {};
   let origIdx = 0;
   let transIdx = 0;
   while (origIdx < originalInput.length && transIdx < transformedInput.length) {
     const origChar = originalInput[origIdx];
-    const transChar = transformedInput[transIdx];
-    map[origIdx] = transIdx;
-    // Handle expansion: if the transformed char(s) represent a single original char
-    if (origChar === 'ß' && transformedInput.slice(transIdx, transIdx + 2) === 'ss') {
-      // 'ß' expands to 'ss' in transformed
+    // Check for all German special char expansions
+    if ((origChar === 'a' || origChar === 'A') && (transformedInput.slice(transIdx, transIdx + 2).toLowerCase() === 'ä')) {
+      map[origIdx] = transIdx;
+      transIdx += 1;
+    } else if ((origChar === 'o' || origChar === 'O') && (transformedInput.slice(transIdx, transIdx + 2).toLowerCase() === 'ö')) {
+      map[origIdx] = transIdx;
+      transIdx += 1;
+    } else if ((origChar === 'u' || origChar === 'U') && (transformedInput.slice(transIdx, transIdx + 2).toLowerCase() === 'ü')) {
+      map[origIdx] = transIdx;
+      transIdx += 1;
+    } else if ((origChar === 'ä' || origChar === 'Ä') && (transformedInput.slice(transIdx, transIdx + 2).toLowerCase() === 'ae')) {
+      map[origIdx] = transIdx;
+      transIdx += 2;
+    } else if ((origChar === 'ö' || origChar === 'Ö') && (transformedInput.slice(transIdx, transIdx + 2).toLowerCase() === 'oe')) {
+      map[origIdx] = transIdx;
+      transIdx += 2;
+    } else if ((origChar === 'ü' || origChar === 'Ü') && (transformedInput.slice(transIdx, transIdx + 2).toLowerCase() === 'ue')) {
+      map[origIdx] = transIdx;
+      transIdx += 2;
+    } else if ((origChar === 'ß') && (transformedInput.slice(transIdx, transIdx + 2) === 'ss')) {
+      map[origIdx] = transIdx;
       transIdx += 2;
     } else {
+      map[origIdx] = transIdx;
       transIdx++;
     }
     origIdx++;

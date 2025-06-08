@@ -2,6 +2,7 @@
 import { config } from './config.js';
 import { updateProgress, setAudioProgress } from './player.js';
 import { playCurrentSegment, nextSegment, previousSegment, replayCurrentSegment } from './segmentManager.js';
+import stateManager from './utils/stateManager.js';
 
 /**
  * Set up UI components and event listeners
@@ -75,6 +76,28 @@ export function setupUI(audio, segmentState, inputManager) {
             inputContainer.style.display = 'none';
         }
     });
+    
+    // Capitalization toggle setup
+    const capitalizationToggle = document.getElementById('capitalization-toggle');
+    const capitalizationLabel = document.getElementById('capitalization-toggle-label');
+    if (capitalizationToggle && capitalizationLabel) {
+        // Set initial state from stateManager or default (false)
+        let isCapitalizationSensitive = stateManager.getState('ui')?.capitalizationSensitive ?? false;
+        updateCapitalizationToggleUI(isCapitalizationSensitive);
+
+        capitalizationToggle.addEventListener('click', () => {
+            isCapitalizationSensitive = !isCapitalizationSensitive;
+            stateManager.updateState('ui', { capitalizationSensitive: isCapitalizationSensitive });
+            updateCapitalizationToggleUI(isCapitalizationSensitive);
+            document.dispatchEvent(new CustomEvent('capitalizationToggleChanged', { detail: { isCapitalizationSensitive } }));
+        });
+    }
+
+    function updateCapitalizationToggleUI(isActive) {
+        capitalizationToggle.setAttribute('aria-pressed', isActive);
+        capitalizationToggle.classList.toggle('active', isActive);
+        capitalizationLabel.textContent = isActive ? 'Capitalization matters' : 'Capitalization ignored';
+    }
 }
 
 /**

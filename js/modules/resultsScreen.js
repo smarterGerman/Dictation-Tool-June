@@ -220,6 +220,7 @@ function generateResultsHTML(stats, segments, userInputs) {
                 <div class="stat-sub-item">Misspelled: <span class="word-misspelled">${calculatedStats.advancedMetrics.misspelledWords}</span></div>
                 <div class="stat-sub-item">Missing: <span class="word-missing">${calculatedStats.advancedMetrics.missingWords}</span></div>
                 <div class="stat-sub-item">Extra: <span class="word-extra">${calculatedStats.advancedMetrics.extraWords}</span></div>
+                ${stateManager.get('capitalizationSensitive') ? `<div class="stat-sub-item">Capitalization Errors: <span class="word-misspelled">${calculatedStats.advancedMetrics.words?.filter(w => w.capitalizationError).length || 0}</span></div>` : ''}
             </div>` : `
             <div class="stat-item">
                 <div class="stat-title">Mistakes</div>
@@ -262,7 +263,8 @@ function generateResultsHTML(stats, segments, userInputs) {
                     if (word.status === 'correct') {
                         html += `<span class="word-correct">${word.expected}</span> `;
                     } else if (word.status === 'misspelled') {
-                        html += `<span class="word-misspelled" title="User typed: ${word.word}">${word.expected}</span> `;
+                        let capError = word.capitalizationError ? ' (capitalization error)' : '';
+                        html += `<span class="word-misspelled" title="User typed: ${word.word}${capError}">${word.expected}</span> `;
                     } else if (word.status === 'missing') {
                         html += `<span class="word-missing">${word.expected}</span> `;
                     }

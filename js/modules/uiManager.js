@@ -71,7 +71,8 @@ function displayHighlightedReference(containerElement, result, referenceText) {
       } else if (matchInfo.status === 'misspelled') {
         wordElement.classList.add('ref-word-misspelled');
         if (matchInfo.word) {
-          wordElement.setAttribute('title', `User typed: ${matchInfo.word}`);
+          let capError = matchInfo.capitalizationError ? ' (capitalization error)' : '';
+          wordElement.setAttribute('title', `User typed: ${matchInfo.word}${capError}`);
         }
       } else if (matchInfo.status === 'missing') {
         wordElement.classList.add('ref-word-missing');
@@ -433,378 +434,134 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
       logger.warn('Missing referenceMapRow in updateReferenceMappingDisplay');
       return;
     }
-    
+    // LOG: Entry
+    console.log('[updateReferenceMappingDisplay] called', { result, referenceText });
     // Clear existing content
     referenceMapRow.innerHTML = '';
-
     // Generate placeholder container for reference
     const placeholderContainer = generatePlaceholdersForReference(referenceText);
     if (!placeholderContainer) {
       logger.error('Failed to generate placeholders for reference text');
       return;
     }
-    
     referenceMapRow.appendChild(placeholderContainer);
-    
     // If no result, just return the placeholders
     if (!result || !result.inputText) {
       logger.debug('No result data provided, showing empty placeholders');
       return;
     }
-    
-    // Use the original input words - NOT the transformed ones
+    // LOG: Input and reference words
     const inputWords = result.inputText ? result.inputText.trim().split(/\s+/) : [];
     const refWords = referenceText ? referenceText.trim().split(/\s+/) : [];
-    
+    console.log('[updateReferenceMappingDisplay] inputWords:', inputWords, 'refWords:', refWords);
     if (!inputWords.length || !refWords.length) {
       logger.warn('No words to process in updateReferenceMappingDisplay');
       return;
     }
-    
-    logger.debug('Processing comparison between input and reference words', { inputWords, refWords });
-    
     // Track which reference words have already been matched
     const matchedRefIndices = new Set();
-  
-  // Process each input word in the order the user typed them
-  inputWords.forEach((inputWord, inputWordIndex) => {
-    if (!inputWord) return;
-    
-    // Use our helper function to find the best matching reference word
-    const matchResult = findBestMatchingReferenceWord(inputWord, refWords, matchedRefIndices);
-    let bestMatchIndex = matchResult.index;
-    let bestMatchScore = matchResult.score;
-    let transformedInput = matchResult.transformedInput;
-    
-    // If we found a match, show the ORIGINAL user input with feedback
-    if (bestMatchIndex !== -1 && bestMatchScore > 0.5) {
-      const wordElements = placeholderContainer.querySelectorAll('.word-placeholder');
-      if (bestMatchIndex < wordElements.length) {
-        const wordElement = wordElements[bestMatchIndex];
-        let letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-        const refWord = refWords[bestMatchIndex].toLowerCase();
-        // Only declare transformedInputWord once
-        let transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
-
-        // --- FIX: Ensure enough placeholders for all input characters ---
-        if (inputWord.length > letterPlaceholders.length) {
-          for (let i = letterPlaceholders.length; i < inputWord.length; i++) {
-            const newPlaceholder = document.createElement('span');
-            newPlaceholder.className = 'letter-placeholder';
-            newPlaceholder.textContent = '_';
-            newPlaceholder.dataset.position = i.toString();
-            newPlaceholder.dataset.letter = inputWord[i] || '';
-            wordElement.appendChild(newPlaceholder);
-          }
-          // Refresh NodeList after appending
-          letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-        }
-        
-        // Transform the entire input word once
-        transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
-        
-        logger.debug('Word comparison', { input: inputWord, transformed: transformedInputWord, reference: refWord });
-        
-        // Special case: input and reference only differ by trailing punctuation
-        const textNormalizer = createTextNormalizer();
-        const inputNoPunct = textNormalizer.removePunctuation(inputWord);
-        const refNoPunct = textNormalizer.removePunctuation(refWord);
-        if (inputNoPunct === refNoPunct) {
-          for (let i = 0; i < Math.min(inputWord.length, refWord.length); i++) {
-            const letterSpan = letterPlaceholders[i];
-            if (letterSpan) {
-              letterSpan.classList.remove('misspelled');
-              letterSpan.classList.add('correct');
-              letterSpan.textContent = inputWord[i];
-              letterSpan.classList.add('revealed');
-              letterSpan.setAttribute('data-original-char', inputWord[i]);
+    inputWords.forEach((inputWord, inputWordIndex) => {
+      if (!inputWord) return;
+      // LOG: Processing input word
+      console.log('[updateReferenceMappingDisplay] Processing inputWord', inputWord, 'at index', inputWordIndex);
+      // Use our helper function to find the best matching reference word
+      const matchResult = findBestMatchingReferenceWord(inputWord, refWords, matchedRefIndices);
+      let bestMatchIndex = matchResult.index;
+      let bestMatchScore = matchResult.score;
+      let transformedInput = matchResult.transformedInput;
+      // LOG: Best match result
+      console.log('[updateReferenceMappingDisplay] matchResult', matchResult);
+      // If we found a match, show the ORIGINAL user input with feedback
+      if (bestMatchIndex !== -1 && bestMatchScore > 0.5) {
+        const wordElements = placeholderContainer.querySelectorAll('.word-placeholder');
+        if (bestMatchIndex < wordElements.length) {
+          const wordElement = wordElements[bestMatchIndex];
+          let letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
+          const refWord = refWords[bestMatchIndex].toLowerCase();
+          let transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
+          // LOG: Word comparison
+          console.log('[updateReferenceMappingDisplay] Comparing', { inputWord, transformedInputWord, refWord });
+          // --- FIX: Ensure enough placeholders for all input characters ---
+          if (inputWord.length > letterPlaceholders.length) {
+            for (let i = letterPlaceholders.length; i < inputWord.length; i++) {
+              const newPlaceholder = document.createElement('span');
+              newPlaceholder.className = 'letter-placeholder';
+              newPlaceholder.textContent = '_';
+              newPlaceholder.dataset.position = i.toString();
+              newPlaceholder.dataset.letter = inputWord[i] || '';
+              wordElement.appendChild(newPlaceholder);
             }
+            // Refresh NodeList after appending
+            letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
           }
-          // Optionally, mark any extra trailing punctuation as missing or correct as you wish
-          return;
-        }
-        
-        // Use our helper function to compare words with proper error handling
-        const comparison = compareWords(inputWord, refWord);
-        // Only use substringStart if needed for partial matches
-        let substringStart = 0;
-        // Early return if it's a complete match ignoring punctuation
-        if (comparison.isCleanMatch) {
-          logger.debug('Complete match ignoring punctuation:', { inputWord, refWord });
-          for (let i = 0; i < inputWord.length; i++) {
-            const refPos = i;
-            if (refPos < letterPlaceholders.length) {
-              const letterSpan = letterPlaceholders[refPos];
+          // LOG: Letter placeholders
+          console.log('[updateReferenceMappingDisplay] letterPlaceholders', letterPlaceholders);
+          // Transform the entire input word once
+          transformedInputWord = transformSpecialCharacters(inputWord.toLowerCase());
+          // Special case: input and reference only differ by trailing punctuation
+          const textNormalizer = createTextNormalizer();
+          const inputNoPunct = textNormalizer.removePunctuation(inputWord);
+          const refNoPunct = textNormalizer.removePunctuation(refWord);
+          if (inputNoPunct === refNoPunct) {
+            for (let i = 0; i < Math.min(inputWord.length, refWord.length); i++) {
+              const letterSpan = letterPlaceholders[i];
               if (letterSpan) {
+                letterSpan.classList.remove('misspelled');
+                letterSpan.classList.add('correct');
                 letterSpan.textContent = inputWord[i];
                 letterSpan.classList.add('revealed');
-                letterSpan.classList.add('correct');
                 letterSpan.setAttribute('data-original-char', inputWord[i]);
               }
             }
+            // Optionally, mark any extra trailing punctuation as missing or correct as you wish
+            return;
           }
-          wordElement.classList.add('word-correct');
-          matchedRefIndices.add(bestMatchIndex);
-          return;
-        }
-        
-        // Initialize substringStart for direct word comparisons
-        substringStart = 0;
-        
-        for (let i = 0; i < inputWord.length; i++) {
-          const refPos = substringStart + i;
-          if (refPos < letterPlaceholders.length) {
-            const letterSpan = letterPlaceholders[refPos];
-            letterSpan.textContent = inputWord[i];
-            letterSpan.classList.add('revealed');
-            letterSpan.setAttribute('data-original-char', inputWord[i]);
-            
-            // Mark as correct if it's part of a complete match or characters match case-insensitively
-            if (isCompleteMatch || inputWord[i].toLowerCase() === refWord[refPos].toLowerCase()) {
-              letterSpan.classList.add('correct');
-            } else {
-              letterSpan.classList.add('misspelled');
-            }
-          }
-        }
-        
-        // If it's a complete match ignoring punctuation, mark the whole word as correct
-        if (isCompleteMatch) {
-          wordElement.classList.add('word-correct');
-          matchedRefIndices.add(bestMatchIndex);
-        }
-      } else {
-        // Create character-by-character alignment between input and reference words
-        const alignmentResult = createAlignment(inputWord, refWord);
-        
-        // Get the mapping from original to transformed characters
-        const { originalToTransformedMap } = alignmentResult;
-        
-        logger.debug('Word alignment created', { 
-          inputWord, 
-          refWord, 
-          mappedPositions: Object.keys(alignmentResult.transformedToRefMap).length
-        });
-        
-        for (let i = 0; i < inputWord.length; i++) {
-          // Get the corresponding letter placeholder (if available)
-          if (i < letterPlaceholders.length) {
-            const letterSpan = letterPlaceholders[i];
-            // Show the original character the user typed
-            letterSpan.textContent = inputWord[i];
-            letterSpan.classList.add('revealed');
-            
-            // Add data attribute for debugging
-            letterSpan.setAttribute('data-original-char', inputWord[i]);
-            
-            // Add defensive check for originalToTransformedMap
-            if (!originalToTransformedMap) {
-              logger.warn('originalToTransformedMap is undefined');
-              letterSpan.classList.add('misspelled');
-              continue;
-            }
-            
-            // Find which transformed character this maps to
-            const transformedPos = originalToTransformedMap[i];
-            
-            // Check if this is part of an umlaut transformation (like 'oe' → 'ö')
-            const isUmlaut = originalToTransformedMap['umlaut_' + (i-1)] || originalToTransformedMap['umlaut_' + i];
-            
-            if (transformedPos !== undefined) {
-              // Add defensive check for alignmentResult
-              if (!alignmentResult || !alignmentResult.transformedToRefMap) {
-                logger.warn('alignmentResult missing or incomplete', { alignmentResult });
-                letterSpan.classList.add('misspelled');
-                continue;
-              }
-              
-              // Find where this transformed character aligns in the reference word
-              const refPos = alignmentResult.transformedToRefMap[transformedPos];
-              
-              if (refPos !== undefined && refPos < refWord.length) {
-                // Get the actual characters for comparison
-                const transformedChar = transformedInputWord[transformedPos];
-                const refChar = refWord[refPos];
-                
-                logger.debug('Aligned comparison', { 
-                  original: inputWord[i],
-                  transformed: transformedChar, 
-                  reference: refChar,
-                  positions: { original: i, transformed: transformedPos, reference: refPos },
-                  isUmlaut
-                });
-                
-                // Special handling for umlaut characters (both 'o' and 'e' in 'oe')
-                if (isUmlaut) {
-                  logger.debug('Found umlaut character', { position: i, word: inputWord });
-                  
-                  letterSpan.setAttribute('data-umlaut', 'true');
-                  
-                  // Add special CSS class based on which part of the umlaut this is
-                  if (i > 0 && originalToTransformedMap && originalToTransformedMap['umlaut_' + (i-1)]) {
-                    // This is the 'e' in 'oe'
-                    letterSpan.classList.add('umlaut-part', 'umlaut-second-part');
-                    // Make sure display:none is applied correctly
-                    letterSpan.style.display = 'none';
-                    letterSpan.style.width = '0';
-                    letterSpan.style.opacity = '0';
-                    letterSpan.textContent = '';
-                    logger.debug('This is the second part of an umlaut', { char: inputWord[i] });
-                    
-                    // For the second part, make parent's correctness apply to this element
-                    if (letterPlaceholders[i-1] && letterPlaceholders[i-1].classList.contains('correct')) {
-                      letterSpan.classList.add('correct');
-                    }
-                    
-                  } else {
-                    // This is the 'o' in 'oe'
-                    letterSpan.classList.add('umlaut-part', 'umlaut-first-part');
-                    logger.debug('This is the first part of an umlaut', { char: inputWord[i] });
-                    
-                    // Convert the two characters to show the umlaut
-                    if (i+1 < inputWord.length) {
-                      // Find which umlaut this is
-                      const twoChars = inputWord.substring(i, i+2).toLowerCase();
-                      if (twoChars === 'oe') {
-                        letterSpan.textContent = 'ö';
-                        letterSpan.setAttribute('data-original-char', 'ö');
-                      }
-                      else if (twoChars === 'ae') {
-                        letterSpan.textContent = 'ä';
-                        letterSpan.setAttribute('data-original-char', 'ä');
-                      }
-                      else if (twoChars === 'ue') {
-                        letterSpan.textContent = 'ü';
-                        letterSpan.setAttribute('data-original-char', 'ü');
-                      }
-                    }
-                  }
-                }
-                
-                // Hide the second character of the umlaut pair (the 'e' in 'oe')
-                if (i > 0 && originalToTransformedMap && originalToTransformedMap['umlaut_' + (i-1)]) {
-                  // Make this element completely invisible and take no space
-                  letterSpan.style.display = 'none'; 
-                  letterSpan.innerHTML = ''; 
-                  letterSpan.style.width = '0';
-                  letterSpan.style.margin = '0';
-                  letterSpan.style.padding = '0';
-                  letterSpan.style.position = 'absolute';
-                  letterSpan.style.visibility = 'hidden';
-                  letterSpan.classList.add('hidden', 'umlaut-second-part'); 
-                }
-                
-                // Apply appropriate class based on character match
-                if (transformedChar === refChar) {
+          // Use our helper function to compare words with proper error handling
+          const comparison = compareWords(inputWord, refWord);
+          // Only use substringStart if needed for partial matches
+          let substringStart = 0;
+          // Early return if it's a complete match ignoring punctuation
+          if (comparison.isCleanMatch) {
+            logger.debug('Complete match ignoring punctuation:', { inputWord, refWord });
+            for (let i = 0; i < inputWord.length; i++) {
+              const refPos = i;
+              if (refPos < letterPlaceholders.length) {
+                const letterSpan = letterPlaceholders[refPos];
+                if (letterSpan) {
+                  letterSpan.textContent = inputWord[i];
+                  letterSpan.classList.add('revealed');
                   letterSpan.classList.add('correct');
-                } else {
-                  letterSpan.classList.add('misspelled');
+                  letterSpan.setAttribute('data-original-char', inputWord[i]);
                 }
+              }
+            }
+            // Optionally, mark any extra trailing punctuation as missing or correct as you wish
+            return;
+          }
+          // LOG: Per-letter comparison
+          for (let i = 0; i < inputWord.length; i++) {
+            const refPos = substringStart + i;
+            if (refPos < letterPlaceholders.length) {
+              const letterSpan = letterPlaceholders[refPos];
+              letterSpan.textContent = inputWord[i];
+              letterSpan.classList.add('revealed');
+              letterSpan.setAttribute('data-original-char', inputWord[i]);
+              if (inputWord[i].toLowerCase() === refWord[refPos].toLowerCase()) {
+                letterSpan.classList.add('correct');
+                // Force reflow to ensure style is applied
+                void letterSpan.offsetHeight;
               } else {
-                // This character has no alignment in the reference word
                 letterSpan.classList.add('misspelled');
-              }
-            } else {
-              // Could not map this character
-              letterSpan.classList.add('misspelled');
-            }
-          }
-        }
-        
-        // Handle unmatched reference characters (like 'c' in 's[c]höner')
-        // But don't reveal what they are - just indicate something is missing
-        
-        // Add defensive check for alignmentResult
-        if (!alignmentResult || !alignmentResult.refPositionsMatched) {
-          logger.warn('alignmentResult missing or incomplete when handling unmatched refs', { alignmentResult });
-          return; // Skip this part if we don't have the alignment data
-        }
-        
-        for (let i = 0; i < refWord.length; i++) {
-          if (!alignmentResult.refPositionsMatched.has(i)) {
-            // NEW: Skip missing character indicators outside substring region for substring matches
-            if (alignmentResult.isSubstringMatch && alignmentResult.substringPosition !== undefined) {
-              const substringStart = alignmentResult.substringPosition;
-              const substringEnd = substringStart + (transformedInputWord ? transformedInputWord.length : 0);
-              
-              // If this missing character is outside the substring region, don't show an indicator
-              if (i < substringStart || i >= substringEnd) {
-                continue;
-              }
-            }
-            
-            // Find appropriate position to insert the missing character indicator
-            const insertPosition = findInsertPositionForMissingChar(
-              i, refWord, alignmentResult.refPositionsMatched
-            );
-            
-            logger.debug('Missing character', { 
-                      refPosition: i, 
-                      insertPosition 
-                    });
-            
-            if (insertPosition >= 0 && insertPosition < letterPlaceholders.length) {
-              const letterSpan = letterPlaceholders[insertPosition];
-              
-              // Special handling for "sh" vs "sch" case
-              if (refWord[i] === 'c' && i === 1 && refWord.startsWith('sch') && 
-                  transformedInputWord.startsWith('sh')) {
-                logger.debug('Special handling for missing character in "sch"');
-                
-                // Add a class to indicate a missing letter but don't reveal what it is
-                letterSpan.classList.add('missing-between');
-                // Keep the underscore to indicate something's missing
-                letterSpan.textContent = '_';
-                
-                // Make sure it's red to indicate it's missing
-                letterSpan.style.color = '#e74c3c';
-                
-                // Ensure surrounding characters ('s' and 'h') are marked as correct
-                if (insertPosition > 0 && insertPosition + 1 < letterPlaceholders.length) {
-                  logger.debug('Ensuring surrounding characters are properly marked');
-                  
-                  // Mark 's' as correct (it's before the missing 'c')
-                  const prevLetterSpan = letterPlaceholders[insertPosition - 1];
-                  if (prevLetterSpan) {
-                    prevLetterSpan.classList.add('correct');
-                  }
-                  
-                  // Mark 'h' as correct and visible (it's after the missing 'c')
-                  const nextLetterSpan = letterPlaceholders[insertPosition + 1];
-                  if (nextLetterSpan) {
-                    nextLetterSpan.classList.add('correct');
-                    if (nextLetterSpan.classList.contains('missing-char')) {
-                      nextLetterSpan.classList.remove('missing-char');
-                    }
-                  }
-                }
-              } else {
-                // Standard missing character handling - indicate missing but don't reveal
-                letterSpan.classList.add('missing-char');
-                letterSpan.textContent = '_';
-                // Ensure the color is red
-                letterSpan.style.color = '#e74c3c';
+                console.log('Misspelled letter:', inputWord[i], 'should be', refWord[refPos], 'at', refPos);
               }
             }
           }
-        }
-        
-        // Apply special handling for the "sh" vs "sch" pattern if detected
-        if (transformedInputWord.startsWith('sh') && refWord.startsWith('sch')) {
-          handleShPattern(wordElement, inputWord, transformedInputWord, refWord);
-        }
-        
-        // Mark the whole word if it's a good match
-        if (bestMatchScore > 0.85) {
-          wordElement.classList.add('word-' + 
-            (bestMatchScore > 0.95 ? 'correct' : 'misspelled'));
-          matchedRefIndices.add(bestMatchIndex);
         }
       }
-    }
-  });
+    });
   } catch (error) {
     logger.error('Error in updateReferenceMappingDisplay', error);
+    console.error('[updateReferenceMappingDisplay] Exception:', error);
   }
 }
 
@@ -829,3 +586,18 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
  * @param {string} refWord - The reference word
  */
 // handleShPattern is now imported from textComparison/uiHelpers.js
+
+// Capitalization toggle state (read from stateManager)
+function isCapitalizationSensitive() {
+  return stateManager.get('capitalizationSensitive') === true;
+}
+
+// Listen for capitalization toggle changes and re-render input/results as needed
+if (typeof window !== 'undefined' && window.document) {
+  document.addEventListener('capitalizationToggleChanged', () => {
+    // You may want to trigger a re-render of the current segment/input/results here
+    // For now, just log for debugging
+    logger.info('Capitalization toggle changed, UI should update');
+    // TODO: Call the appropriate update functions for input/results
+  });
+}

@@ -545,7 +545,12 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
               letterSpan.textContent = inputWord[i];
               letterSpan.classList.add('revealed');
               letterSpan.setAttribute('data-original-char', inputWord[i]);
-              if (inputWord[i].toLowerCase() === refWord[refPos].toLowerCase()) {
+              // Fix: Check for undefined before calling toLowerCase
+              if (
+                typeof inputWord[i] !== 'undefined' &&
+                typeof refWord[refPos] !== 'undefined' &&
+                inputWord[i].toLowerCase() === refWord[refPos].toLowerCase()
+              ) {
                 letterSpan.classList.add('correct');
                 // Force reflow to ensure style is applied
                 void letterSpan.offsetHeight;

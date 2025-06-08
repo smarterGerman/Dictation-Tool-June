@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Capitalization Sensitivity</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .container {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin-top: 10px;
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-right: 10px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .status {
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .correct {
+            color: green;
+        }
+        .misspelled {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Capitalization Sensitivity</h1>
+    
+    <div class="container">
+        <div>
+            <h2>1. Capitalization Sensitivity Toggle</h2>
+            <label class="toggle-switch">
+                <input type="checkbox" id="capitalization-toggle">
+                <span class="slider"></span>
+            </label>
+            <span id="capitalization-status">Capitalization Sensitivity: Off</span>
+        </div>
+        
+        <div>
+            <h2>2. Word Comparison Test</h2>
+            <div>
+                <label for="reference-word">Reference Word:</label>
+                <input type="text" id="reference-word" value="Berlin">
+            </div>
+            <div>
+                <label for="input-word">Input Word:</label>
+                <input type="text" id="input-word" value="berlin" oninput="compareWords()">
+            </div>
+            <button onclick="compareWords()">Compare Words</button>
+            
+            <div class="result" id="compare-result">
+                Comparison results will appear here...
+            </div>
+        </div>
+        
+        <div>
+            <h2>3. Debug Information</h2>
+            <button onclick="showStateInfo()">Show Current State</button>
+            <button onclick="testWordMatcher()">Test WordMatcher Directly</button>
+            <div class="result" id="debug-info"></div>
+        </div>
+        
+        <div>
+            <h2>4. Current Status</h2>
+            <p>
+                Word status: <span id="word-status" class="status">Unknown</span><br>
+                Similarity score: <span id="similarity-score">N/A</span>
+            </p>
+        </div>
+    </div>
+
+    <script type="module">
+        import stateManager from './js/modules/utils/stateManager.js';
+        import { findBestWordMatches } from './js/modules/textComparison/wordMatcher.js';
+        import { calculateSimilarityScore } from './js/modules/textComparison/similarityScoring.js';
+        
+        // Make them available globally
+        window.stateManager = stateManager;
+        window.findBestWordMatches = findBestWordMatches;
+        window.calculateSimilarityScore = calculateSimilarityScore;
+        
+        // Initialize state if needed
+        if (stateManager.getState('comparison').capitalizationSensitive === undefined) {
+            stateManager.updateState('comparison', { capitalizationSensitive: false });
+        }
+        
+        // Set up toggle
+        const toggle = document.getElementById('capitalization-toggle');
+        const statusSpan = document.getElementById('capitalization-status');
+        
+        // Initialize toggle state
+        toggle.checked = stateManager.getState('comparison').capitalizationSensitive === true;
+        updateStatusDisplay();
+        
+        // Set up event listener
+        toggle.addEventListener('change', function() {
+            stateManager.updateState('comparison', { capitalizationSensitive: toggle.checked });
+            updateStatusDisplay();
+            compareWords(); // Re-run comparison with new setting
+            console.log('Capitalization sensitivity changed to:', toggle.checked);
+        });
+        
+        function updateStatusDisplay() {
+            const isOn = stateManager.getState('comparison').capitalizationSensitive === true;
+            statusSpan.textContent = 'Capitalization Sensitivity: ' + (isOn ? 'On' : 'Off');
+        }
+        
+        // Expose compare function globally
+        window.compareWords = function() {
+            const referenceWord = document.getElementById('reference-word').value;
+            const inputWord = document.getElementById('input-word').value;
+            const capitalizationSensitive = stateManager.getState('comparison').capitalizationSensitive;
+            
+            // Display capitalization setting
+            console.log('Current capitalization setting:', capitalizationSensitive);
+            
+            // Calculate similarity score
+            const similarity = calculateSimilarityScore(referenceWord, inputWord);
+            console.log('Similarity score:', similarity);
+            
+            // Use word matcher to determine status
+            const result = findBestWordMatches(
+                [referenceWord], 
+                [inputWord], 
+                { capitalizationSensitive }
+            );
+            
+            console.log('Word matcher result:', result);
+            
+            // Display the results
+            const resultElement = document.getElementById('compare-result');
+            resultElement.innerHTML = `
+                <strong>Reference:</strong> "${referenceWord}"
+                <strong>Input:</strong> "${inputWord}"
+                <strong>Capitalization Sensitive:</strong> ${capitalizationSensitive}
+                <strong>Similarity Score:</strong> ${similarity.toFixed(2)}
+                <strong>Match Result:</strong> ${JSON.stringify(result, null, 2)}
+            `;
+            
+            const wordStatus = document.getElementById('word-status');
+            wordStatus.textContent = result.words[0].status;
+            wordStatus.className = 'status ' + result.words[0].status;
+            
+            document.getElementById('similarity-score').textContent = similarity.toFixed(2);
+        };
+        
+        // Show current state info
+        window.showStateInfo = function() {
+            const stateInfo = stateManager.getState();
+            document.getElementById('debug-info').innerText = JSON.stringify(stateInfo, null, 2);
+        };
+        
+        // Test word matcher directly
+        window.testWordMatcher = function() {
+            const referenceWord = document.getElementById('reference-word').value;
+            const inputWord = document.getElementById('input-word').value;
+            
+            // Test with both settings
+            const resultSensitive = findBestWordMatches(
+                [referenceWord],
+                [inputWord],
+                { capitalizationSensitive: true }
+            );
+            
+            const resultInsensitive = findBestWordMatches(
+                [referenceWord],
+                [inputWord],
+                { capitalizationSensitive: false }
+            );
+            
+            document.getElementById('debug-info').innerHTML = `
+                <strong>With capitalizationSensitive=true:</strong>
+                ${JSON.stringify(resultSensitive, null, 2)}
+                
+                <strong>With capitalizationSensitive=false:</strong>
+                ${JSON.stringify(resultInsensitive, null, 2)}
+            `;
+        };
+        
+        // Run initial comparison
+        compareWords();
+    </script>
+</body>
+</html>

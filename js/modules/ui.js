@@ -97,6 +97,13 @@ export function setupUI(audio, segmentState, inputManager) {
             // Update the state manager - only in the comparison section where it's actually used
             stateManager.updateState('comparison', { capitalizationSensitive: isCapitalizationSensitive });
             
+            // Debug logging for capitalization toggle
+            console.log('[DEBUG] Capitalization toggle changed:', { 
+                isCapitalizationSensitive,
+                stateAfterUpdate: JSON.stringify(stateManager.getState('comparison')),
+                timestamp: new Date().toISOString()
+            });
+            
             // Update the UI to reflect the new state
             updateCapitalizationToggleUI(isCapitalizationSensitive);
             

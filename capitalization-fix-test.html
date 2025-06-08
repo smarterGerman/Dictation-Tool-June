@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capitalization Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin-top: 10px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .failure {
+            color: red;
+            font-weight: bold;
+        }
+        h2 {
+            margin-top: 5px;
+        }
+        button {
+            padding: 8px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Capitalization Sensitivity Fix Test</h1>
+    <p>This page tests the implementation of the capitalization sensitivity feature.</p>
+    
+    <div class="test-section">
+        <h2>Test 1: "Berlin" vs "berlin" with capitalization sensitivity ON</h2>
+        <p>Expected outcome: The word should be marked as "misspelled" since capitalization is incorrect.</p>
+        <button onclick="runTest1()">Run Test</button>
+        <div id="result1" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: "Berlin" vs "berlin" with capitalization sensitivity OFF</h2>
+        <p>Expected outcome: The word should be marked as "correct" since capitalization is ignored.</p>
+        <button onclick="runTest2()">Run Test</button>
+        <div id="result2" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Multiple Words with Mixed Capitalization Sensitivity</h2>
+        <p>Expected outcome: The words with incorrect capitalization should be marked as "misspelled" only when sensitivity is ON.</p>
+        <button onclick="runTest3()">Run Test</button>
+        <div id="result3" class="result"></div>
+    </div>
+
+    <script type="module">
+        import { findBestWordMatches } from './js/modules/textComparison/wordMatcher.js';
+        import stateManager from './js/modules/utils/stateManager.js';
+
+        // Make them available globally
+        window.findBestWordMatches = findBestWordMatches;
+        window.stateManager = stateManager;
+        
+        // Let the page know our modules are loaded
+        document.getElementById('result1').innerHTML = 'Modules loaded. Click "Run Test" to start.';
+    </script>
+    
+    <script>
+        function displayResult(elementId, result, expectedStatus) {
+            const element = document.getElementById(elementId);
+            const formatted = JSON.stringify(result, null, 2);
+            const status = result.words[0].status;
+            
+            let html = `Result:\n${formatted}\n\n`;
+            
+            if (status === expectedStatus) {
+                html += `<span class="success">✓ SUCCESS: Word status is "${status}" as expected.</span>`;
+            } else {
+                html += `<span class="failure">✗ FAILURE: Word status is "${status}" but should be "${expectedStatus}".</span>`;
+            }
+            
+            element.innerHTML = html;
+        }
+        
+        function runTest1() {
+            setTimeout(() => {
+                try {
+                    // Test with capitalization sensitivity ON
+                    const result = window.findBestWordMatches(
+                        ['Berlin'], 
+                        ['berlin'], 
+                        { capitalizationSensitive: true }
+                    );
+                    displayResult('result1', result, 'misspelled');
+                } catch(e) {
+                    document.getElementById('result1').innerHTML = 'Error: ' + e.message;
+                }
+            }, 10);
+        }
+        
+        function runTest2() {
+            setTimeout(() => {
+                try {
+                    // Test with capitalization sensitivity OFF
+                    const result = window.findBestWordMatches(
+                        ['Berlin'], 
+                        ['berlin'], 
+                        { capitalizationSensitive: false }
+                    );
+                    displayResult('result2', result, 'correct');
+                } catch(e) {
+                    document.getElementById('result2').innerHTML = 'Error: ' + e.message;
+                }
+            }, 10);
+        }
+        
+        function runTest3() {
+            setTimeout(() => {
+                try {
+                    const element = document.getElementById('result3');
+                    
+                    // Test with multiple words and capitalization sensitivity ON
+                    const resultOn = window.findBestWordMatches(
+                        ['Deutschland', 'Frankreich', 'Österreich'],
+                        ['deutschland', 'Frankreich', 'österreich'],
+                        { capitalizationSensitive: true }
+                    );
+                    
+                    // Test with multiple words and capitalization sensitivity OFF
+                    const resultOff = window.findBestWordMatches(
+                        ['Deutschland', 'Frankreich', 'Österreich'],
+                        ['deutschland', 'Frankreich', 'österreich'],
+                        { capitalizationSensitive: false }
+                    );
+                    
+                    let html = `Results with capitalization sensitivity ON:\n${JSON.stringify(resultOn, null, 2)}\n\n`;
+                    html += `Results with capitalization sensitivity OFF:\n${JSON.stringify(resultOff, null, 2)}\n\n`;
+                    
+                    // Check results
+                    const expectedOn = ['misspelled', 'correct', 'misspelled'];
+                    const expectedOff = ['correct', 'correct', 'correct'];
+                    let allCorrect = true;
+                    
+                    for (let i = 0; i < 3; i++) {
+                        if (resultOn.words[i].status !== expectedOn[i] || 
+                            resultOff.words[i].status !== expectedOff[i]) {
+                            allCorrect = false;
+                        }
+                    }
+                    
+                    if (allCorrect) {
+                        html += `<span class="success">✓ SUCCESS: All words have the correct status based on capitalization sensitivity setting.</span>`;
+                    } else {
+                        html += `<span class="failure">✗ FAILURE: At least one word has an incorrect status.</span>`;
+                    }
+                    
+                    element.innerHTML = html;
+                } catch(e) {
+                    document.getElementById('result3').innerHTML = 'Error: ' + e.message;
+                }
+            }, 10);
+        }
+    </script>
+</body>
+</html>

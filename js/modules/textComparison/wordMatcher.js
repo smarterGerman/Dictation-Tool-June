@@ -71,8 +71,35 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
         matchedExpected[i] = true;
         matchedActual[j] = true;
 
-        // Determine status based on similarity
-        const status = similarity >= 0.95 ? 'correct' : 'misspelled';
+        // Check for exact capitalization match when capitalization sensitivity is enabled
+        const isExactCapitalizationMatch = capitalizationSensitive 
+          ? expectedWords[i] === actualWords[j]
+          : true;  // If not case-sensitive, don't check case
+
+        // Debug log for capitalization checking
+        console.log('[DEBUG] Word matching capitalization check:', { 
+          expected: expectedWords[i], 
+          actual: actualWords[j], 
+          capitalizationSensitive: capitalizationSensitive,
+          isExactMatch: expectedWords[i] === actualWords[j],
+          isExactCapitalizationMatch: isExactCapitalizationMatch
+        });
+
+        // Determine status based on similarity AND capitalization when enabled
+        let status;
+        if (similarity >= 0.95) {
+          if (capitalizationSensitive) {
+            status = (expectedWords[i] === actualWords[j]) ? 'correct' : 'misspelled';
+          } else {
+            status = 'correct';
+          }
+        } else {
+          status = 'misspelled';
+        }
+        
+        // Add debug info
+        console.log(`[CRITICAL DEBUG] Word "${expectedWords[i]}" vs "${actualWords[j]}": similarity=${similarity}, capSensitive=${capitalizationSensitive}, status=${status}`);
+          
         results[i] = {
           expected: expectedWords[i],
           word: actualWords[j],

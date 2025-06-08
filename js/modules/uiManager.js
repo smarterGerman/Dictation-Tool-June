@@ -500,23 +500,56 @@ export function updateReferenceMappingDisplay(referenceMapRow, result, reference
           console.log('[updateReferenceMappingDisplay] letterPlaceholders', letterPlaceholders);
           // transformedInputWord already set with capitalization sensitivity above
           // Special case: input and reference only differ by trailing punctuation
-          const textNormalizer = createTextNormalizer();
-          const inputNoPunct = textNormalizer.removePunctuation(inputWord);
-          const refNoPunct = textNormalizer.removePunctuation(refWord);
-          if (inputNoPunct === refNoPunct) {
-            for (let i = 0; i < Math.min(inputWord.length, refWord.length); i++) {
-              const letterSpan = letterPlaceholders[i];
-              if (letterSpan) {
-                letterSpan.classList.remove('misspelled');
-                letterSpan.classList.add('correct');
-                letterSpan.textContent = inputWord[i];
-                letterSpan.classList.add('revealed');
-                letterSpan.setAttribute('data-original-char', inputWord[i]);
+          // const textNormalizer = createTextNormalizer();
+          // const inputNoPunct = textNormalizer.removePunctuation(inputWord);
+          // const refNoPunct = textNormalizer.removePunctuation(refWord);
+
+          // console.log("[CRITICAL DEBUG] Special case check:", {
+          //   inputWord, refWord, inputNoPunct, refNoPunct, 
+          //   match: inputNoPunct === refNoPunct,
+          //   capitalizationSensitive: isCapitalizationSensitive()
+          // });
+
+          // Fix: respect capitalization sensitivity setting when comparing stripped words
+          // const capitalizationMatches = capitalizationSensitive ? 
+          //   (inputNoPunct === refNoPunct) : 
+          //   (inputNoPunct.toLowerCase() === refNoPunct.toLowerCase());
+          // if (capitalizationMatches) {
+            // If capitalization is sensitive and the words differ only by case,
+            // we need to check each character individually to mark misspellings
+            if (capitalizationSensitive && inputWord !== refWord) {
+              for (let i = 0; i < Math.min(inputWord.length, refWord.length); i++) {
+                const letterSpan = letterPlaceholders[i];
+                if (letterSpan) {
+                  letterSpan.textContent = inputWord[i];
+                  letterSpan.classList.add('revealed');
+                  letterSpan.setAttribute('data-original-char', inputWord[i]);
+                  
+                  // Mark as misspelled if case doesn't match
+                  if (inputWord[i] !== refWord[i] && inputWord[i].toLowerCase() === refWord[i].toLowerCase()) {
+                    letterSpan.classList.add('misspelled');
+                  } else {
+                    letterSpan.classList.remove('misspelled');
+                    letterSpan.classList.add('correct');
+                  }
+                }
+              }
+            } else {
+              // No capitalization sensitivity or capitalization matches exactly
+              for (let i = 0; i < Math.min(inputWord.length, refWord.length); i++) {
+                const letterSpan = letterPlaceholders[i];
+                if (letterSpan) {
+                  letterSpan.classList.remove('misspelled');
+                  letterSpan.classList.add('correct');
+                  letterSpan.textContent = inputWord[i];
+                  letterSpan.classList.add('revealed');
+                  letterSpan.setAttribute('data-original-char', inputWord[i]);
+                }
               }
             }
             // Optionally, mark any extra trailing punctuation as missing or correct as you wish
             return;
-          }
+          // }
           // Use our helper function to compare words with proper error handling
           const comparison = compareWords(inputWord, refWord);
           // Only use substringStart if needed for partial matches

@@ -178,14 +178,12 @@ function transformEszett(text) {
  */
 export function normalizeWord(word) {
   if (!word) return '';
-  
   // First transform special characters
   const transformed = transformSpecialCharacters(word);
-  
   // Then normalize for comparison
-  return transformed.toLowerCase()
-    .replace(/[.,;:!?()[\]{}'"–—-]/g, '')
-    .trim();
+  // COMMENTED OUT: Remove punctuation
+  // return transformed.toLowerCase().replace(/[.,;:!?()[\]{}'"–—-]/g, '').trim();
+  return transformed.toLowerCase().trim();
 }
 
 /**
@@ -197,16 +195,12 @@ export function normalizeWord(word) {
  */
 export function normalizeText(text) {
   if (!text) return '';
-  
   // First transform special characters
   const transformed = transformSpecialCharacters(text);
-  
   // Then normalize for comparison
-  return transformed
-    .toLowerCase()
-    .replace(/[.,;:!?()[\]{}'"–—-]/g, '') // Remove punctuation
-    .replace(/\s+/g, ' ')                // Normalize whitespace
-    .trim();
+  // COMMENTED OUT: Remove punctuation
+  // return transformed.toLowerCase().replace(/[.,;:!?()[\]{}'"–—-]/g, '').replace(/\s+/g, ' ').trim();
+  return transformed.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -220,9 +214,14 @@ export function createTextNormalizer() {
      * @param {string} text - The text to normalize
      * @returns {string} Text with punctuation removed and lowercase
      */
+    // COMMENTED OUT: Remove punctuation
+    // removePunctuation(text) {
+    //   if (!text) return '';
+    //   return text.replace(/[.,;:!?()[\]{}'"–—-]/g, '').toLowerCase();
+    // },
     removePunctuation(text) {
-      if (!text) return '';
-      return text.replace(/[.,;:!?()[\]{}'"–—-]/g, '').toLowerCase();
+      // Punctuation removal disabled for debugging
+      return text;
     },
     
     /**
@@ -252,7 +251,9 @@ export function createTextNormalizer() {
      */
     normalizeForComparison(text) {
       if (!text) return '';
-      return this.removePunctuation(this.normalizeWhitespace(text));
+      // COMMENTED OUT: Remove punctuation
+      // return this.removePunctuation(this.normalizeWhitespace(text));
+      return this.normalizeWhitespace(text);
     }
   };
 }

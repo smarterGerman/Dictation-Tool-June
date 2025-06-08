@@ -37,6 +37,13 @@ export function processInput(referenceText, userInput) {
 
   // Capitalization sensitivity from stateManager
   const capitalizationSensitive = stateManager.getState('comparison').capitalizationSensitive ?? false;
+  
+  // Enhanced logging for debugging
+  console.log('[DEBUG] processInput capitalization check:', { 
+    capitalizationSensitive, 
+    stateValue: JSON.stringify(stateManager.getState('comparison')),
+    timestamp: new Date().toISOString()
+  });
 
   // Split into words, preserving punctuation as part of words
   const expectedWords = referenceText.trim().split(/\s+/);

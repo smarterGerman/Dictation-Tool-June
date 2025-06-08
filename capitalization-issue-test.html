@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capitalization Issue Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .correct { color: green; font-weight: bold; }
+        .misspelled { color: red; font-weight: bold; }
+        .missing { color: orange; text-decoration: line-through; }
+        .result {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            overflow: auto;
+            font-family: monospace;
+            margin-top: 10px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        input[type="text"], input[type="checkbox"] {
+            margin: 5px 0;
+            padding: 8px;
+        }
+        label {
+            display: inline-block;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Capitalization Issue Test</h1>
+    <p>This page directly tests the capitalization sensitivity implementation in the word matching system.</p>
+    
+    <div class="test-container">
+        <h2>Test Input</h2>
+        <div>
+            <label for="reference">Reference:</label>
+            <input type="text" id="reference" value="Berlin ist die Hauptstadt von Deutschland." style="width: 80%;">
+        </div>
+        <div>
+            <label for="input">Input:</label>
+            <input type="text" id="input" value="berlin ist die hauptstadt von Deutschland." style="width: 80%;">
+        </div>
+        <div>
+            <label for="cap-sensitive">
+                <input type="checkbox" id="cap-sensitive"> 
+                Capitalization Sensitive
+            </label>
+        </div>
+        <button id="test-btn">Run Test</button>
+        
+        <h3>Results:</h3>
+        <div id="results" class="result">Results will appear here...</div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Live Test Area</h2>
+        <p>Type in the box below to test real-time word matching:</p>
+        <div>
+            <label for="ref-text">Reference text:</label>
+            <input type="text" id="ref-text" value="Berlin ist schön." style="width: 80%;">
+        </div>
+        <div>
+            <input type="text" id="live-input" placeholder="Type here..." style="width: 80%;">
+        </div>
+        <div>
+            <label for="live-cap-sensitive">
+                <input type="checkbox" id="live-cap-sensitive"> 
+                Capitalization Sensitive
+            </label>
+        </div>
+        <div id="live-results" class="result">Type to see results...</div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Debug Log</h2>
+        <div id="console-log" class="result" style="max-height: 300px; background: #333; color: #fff;">Debug logs will appear here...</div>
+    </div>
+
+    <script type="module">
+        import { findBestWordMatches } from './js/modules/textComparison/wordMatcher.js';
+        import stateManager from './js/modules/utils/stateManager.js';
+        import { processInput } from './js/modules/textComparison/inputProcessor.js';
+        
+        // Override console.log
+        const consoleLog = document.getElementById('console-log');
+        const originalLog = console.log;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.borderBottom = '1px solid #555';
+            logEntry.style.marginBottom = '5px';
+            logEntry.style.paddingBottom = '5px';
+            
+            // Format the log entry
+            const content = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            
+            logEntry.textContent = `[${new Date().toISOString()}] ${content}`;
+            consoleLog.appendChild(logEntry);
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        };
+
+        // Set up event handlers
+        document.getElementById('test-btn').addEventListener('click', runTest);
+        document.getElementById('live-input').addEventListener('input', handleLiveInput);
+        document.getElementById('live-cap-sensitive').addEventListener('change', handleLiveInput);
+        
+        // Initialize state
+        if (stateManager.getState('comparison').capitalizationSensitive === undefined) {
+            stateManager.updateState('comparison', { capitalizationSensitive: false });
+        }
+        
+        // Run the test
+        function runTest() {
+            const referenceText = document.getElementById('reference').value;
+            const inputText = document.getElementById('input').value;
+            const capSensitive = document.getElementById('cap-sensitive').checked;
+            
+            console.log(`Running test with capitalizationSensitive=${capSensitive}`);
+            console.log(`Reference: "${referenceText}"`);
+            console.log(`Input: "${inputText}"`);
+            
+            // Update state manager
+            stateManager.updateState('comparison', { capitalizationSensitive: capSensitive });
+            
+            // Process the input
+            const result = processInput(referenceText, inputText);
+            
+            // Display the results
+            displayResults(result, referenceText, inputText, capSensitive);
+        }
+        
+        // Display results in a formatted way
+        function displayResults(result, referenceText, inputText, capSensitive) {
+            let html = `<strong>Reference:</strong> ${referenceText}<br>`;
+            html += `<strong>Input:</strong> ${inputText}<br>`;
+            html += `<strong>Capitalization Sensitive:</strong> ${capSensitive}<br><br>`;
+            
+            html += '<strong>Words:</strong><br>';
+            
+            result.words.forEach((word) => {
+                const expectedClass = word.status === 'correct' ? 'correct' : 
+                                      word.status === 'misspelled' ? 'misspelled' : 'missing';
+                                      
+                html += `<div>
+                    <span class="${expectedClass}">Expected: "${word.expected}"</span>,
+                    Actual: "${word.word || '(missing)'}",
+                    Status: ${word.status},
+                    Similarity: ${word.similarity ? word.similarity.toFixed(2) : 'N/A'}
+                </div>`;
+            });
+            
+            if (result.extraWords && result.extraWords.length > 0) {
+                html += '<br><strong>Extra Words:</strong><br>';
+                result.extraWords.forEach(extra => {
+                    html += `<div>Word: "${extra.word}", Status: ${extra.status}</div>`;
+                });
+            }
+            
+            document.getElementById('results').innerHTML = html;
+        }
+        
+        // Handle live input
+        function handleLiveInput() {
+            const referenceText = document.getElementById('ref-text').value;
+            const inputText = document.getElementById('live-input').value;
+            const capSensitive = document.getElementById('live-cap-sensitive').checked;
+            
+            // Update state manager
+            stateManager.updateState('comparison', { capitalizationSensitive: capSensitive });
+            
+            // Direct word matcher test (without the processInput layer)
+            if (inputText && referenceText) {
+                const refWords = referenceText.split(/\s+/);
+                const inputWords = inputText.split(/\s+/);
+                
+                const result = findBestWordMatches(refWords, inputWords, { capitalizationSensitive: capSensitive });
+                
+                // Display the live results
+                let html = `<strong>Reference:</strong> ${referenceText}<br>`;
+                html += `<strong>Input:</strong> ${inputText}<br>`;
+                html += `<strong>Capitalization Sensitive:</strong> ${capSensitive}<br><br>`;
+                
+                html += '<strong>Direct Word Matcher Result:</strong><br>';
+                if (result.words && result.words.length > 0) {
+                    result.words.forEach((word, index) => {
+                        const statusClass = word.status === 'correct' ? 'correct' : 
+                                           word.status === 'misspelled' ? 'misspelled' : 'missing';
+                        
+                        html += `<div>
+                            <span class="${statusClass}">Word #${index+1}: "${word.expected}"</span>, 
+                            Actual: "${word.word || '(missing)'}", 
+                            Status: ${word.status},
+                            Similarity: ${word.similarity ? word.similarity.toFixed(2) : 'N/A'}
+                        </div>`;
+                    });
+                }
+                
+                document.getElementById('live-results').innerHTML = html;
+            }
+        }
+        
+        // Initial info log
+        console.log('Test page initialized');
+        console.log('Current capitalization setting:', stateManager.getState('comparison').capitalizationSensitive);
+    </script>
+</body>
+</html>

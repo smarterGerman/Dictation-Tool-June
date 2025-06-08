@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capitalization Sensitivity Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-case {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            white-space: pre;
+            background: #f5f5f5;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        input {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        button {
+            padding: 5px 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .correct {
+            color: green;
+            font-weight: bold;
+        }
+        .misspelled {
+            color: red;
+            font-weight: bold;
+        }
+        
+        #console-log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border-radius: 5px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+        }
+        
+        .log-time {
+            color: #aaa;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Capitalization Sensitivity Direct Test</h1>
+    <p>This page directly tests the word matching system without any UI components to isolate the issue.</p>
+    
+    <div class="test-case">
+        <h2>Direct WordMatcher Test</h2>
+        <p>
+            <label>
+                <input type="checkbox" id="cap-sensitive"> 
+                Capitalization Sensitive
+            </label>
+        </p>
+        <p>
+            <label>Expected Word: <input type="text" id="expected-word" value="Berlin"></label><br>
+            <label>Actual Word: <input type="text" id="actual-word" value="berlin"></label>
+        </p>
+        <button id="test-btn">Run Test</button>
+        <div class="result" id="result"></div>
+    </div>
+    
+    <h2>Console Log</h2>
+    <div id="console-log"></div>
+    
+    <script type="module">
+        import { findBestWordMatches } from './js/modules/textComparison/wordMatcher.js';
+        
+        // Override console.log to capture output
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            
+            const consoleDiv = document.getElementById('console-log');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            // Add timestamp
+            const time = document.createElement('div');
+            time.className = 'log-time';
+            time.textContent = new Date().toLocaleTimeString();
+            logEntry.appendChild(time);
+            
+            // Add log content
+            const content = document.createElement('div');
+            content.textContent = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : arg
+            ).join(' ');
+            logEntry.appendChild(content);
+            
+            consoleDiv.appendChild(logEntry);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        };
+        
+        document.getElementById('test-btn').addEventListener('click', function() {
+            const expectedWord = document.getElementById('expected-word').value;
+            const actualWord = document.getElementById('actual-word').value;
+            const capitalizationSensitive = document.getElementById('cap-sensitive').checked;
+            
+            console.log(`Running test with capitalizationSensitive=${capitalizationSensitive}`);
+            console.log(`Expected: "${expectedWord}", Actual: "${actualWord}"`);
+            
+            // Call the wordMatcher directly
+            const result = findBestWordMatches(
+                [expectedWord], 
+                [actualWord], 
+                { capitalizationSensitive }
+            );
+            
+            console.log(`Result:`, result);
+            
+            // Display result
+            const resultDiv = document.getElementById('result');
+            const status = result.words[0].status;
+            
+            resultDiv.innerHTML = `
+                <div>
+                    <strong>Expected:</strong> ${expectedWord}<br>
+                    <strong>Actual:</strong> ${actualWord}<br>
+                    <strong>Capitalization Sensitive:</strong> ${capitalizationSensitive}<br>
+                    <strong>Status:</strong> <span class="${status}">${status}</span><br>
+                    <strong>Similarity:</strong> ${result.words[0].similarity}
+                </div>
+                <div style="margin-top:10px;">
+                    <strong>Raw Result:</strong><br>
+                    ${JSON.stringify(result, null, 2)}
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>

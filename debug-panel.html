@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dictation Tool Debug Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .panel {
+            background-color: #fff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+        
+        .panel h2 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .button-secondary {
+            background-color: #2196F3;
+        }
+        
+        .button-danger {
+            background-color: #f44336;
+        }
+        
+        .result-container {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .correct {
+            color: green;
+            font-weight: bold;
+        }
+        
+        .misspelled {
+            color: red;
+            font-weight: bold;
+        }
+        
+        .missing {
+            color: orange;
+            text-decoration: line-through;
+        }
+        
+        .extra {
+            color: purple;
+            font-style: italic;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+        }
+        
+        .console-log {
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel">
+            <h1>Dictation Tool Debug Panel</h1>
+            <p>This tool helps debug issues with the dictation tool's text comparison functionality.</p>
+        </div>
+        
+        <div class="panel">
+            <h2>1. Capitalization Sensitivity Testing</h2>
+            <div class="form-group">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="capitalization-toggle">
+                    <span class="slider"></span>
+                </label>
+                <span id="capitalization-status">Capitalization Sensitivity: Off</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="reference-text">Reference Text:</label>
+                <input type="text" id="reference-text" value="Berlin ist die Hauptstadt von Deutschland.">
+            </div>
+            
+            <div class="form-group">
+                <label for="user-input">User Input:</label>
+                <input type="text" id="user-input" value="berlin ist die hauptstadt von deutschland.">
+            </div>
+            
+            <button id="compare-btn" class="button">Compare Texts</button>
+            
+            <div id="comparison-result" class="result-container">
+                Results will appear here...
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>2. Direct Word Matching Test</h2>
+            <p>Tests the word matching function directly with a single word.</p>
+            
+            <div class="form-group">
+                <label for="expected-word">Expected Word:</label>
+                <input type="text" id="expected-word" value="Berlin">
+            </div>
+            
+            <div class="form-group">
+                <label for="actual-word">Actual Word:</label>
+                <input type="text" id="actual-word" value="berlin">
+            </div>
+            
+            <button id="word-test-btn" class="button button-secondary">Test Word Match</button>
+            
+            <div id="word-result" class="result-container">
+                Word matching results will appear here...
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>3. State Manager Debug</h2>
+            
+            <div class="form-group">
+                <button id="show-state-btn" class="button">Show Current State</button>
+                <button id="reset-state-btn" class="button button-danger">Reset State</button>
+            </div>
+            
+            <div id="state-result" class="result-container">
+                State information will appear here...
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>4. Console Output</h2>
+            <div id="console-output" class="console-log">Console output will appear here...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import stateManager from './js/modules/utils/stateManager.js';
+        import { findBestWordMatches } from './js/modules/textComparison/wordMatcher.js';
+        import { processInput } from './js/modules/textComparison/inputProcessor.js';
+        
+        // Override console.log
+        const originalConsoleLog = console.log;
+        const consoleOutput = document.getElementById('console-output');
+        
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.borderBottom = '1px solid #555';
+            logEntry.style.paddingBottom = '5px';
+            logEntry.style.marginBottom = '5px';
+            
+            const timestamp = document.createElement('span');
+            timestamp.style.color = '#aaa';
+            timestamp.style.fontSize = '0.8em';
+            timestamp.textContent = new Date().toLocaleTimeString() + ' ';
+            
+            const content = document.createElement('span');
+            content.textContent = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : arg
+            ).join(' ');
+            
+            logEntry.appendChild(timestamp);
+            logEntry.appendChild(content);
+            
+            consoleOutput.appendChild(logEntry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+        
+        // Setup capitalization toggle
+        const toggle = document.getElementById('capitalization-toggle');
+        const statusSpan = document.getElementById('capitalization-status');
+        
+        // Initialize state if needed
+        if (stateManager.getState('comparison').capitalizationSensitive === undefined) {
+            stateManager.updateState('comparison', { capitalizationSensitive: false });
+        }
+        
+        // Initialize toggle state
+        toggle.checked = stateManager.getState('comparison').capitalizationSensitive === true;
+        updateStatusDisplay();
+        
+        toggle.addEventListener('change', function() {
+            stateManager.updateState('comparison', { capitalizationSensitive: toggle.checked });
+            updateStatusDisplay();
+            console.log('Capitalization sensitivity changed to:', toggle.checked);
+            console.log('State after change:', stateManager.getState('comparison'));
+        });
+        
+        function updateStatusDisplay() {
+            const isOn = stateManager.getState('comparison').capitalizationSensitive === true;
+            statusSpan.textContent = 'Capitalization Sensitivity: ' + (isOn ? 'On' : 'Off');
+        }
+        
+        // Compare texts button
+        document.getElementById('compare-btn').addEventListener('click', function() {
+            const referenceText = document.getElementById('reference-text').value;
+            const userInput = document.getElementById('user-input').value;
+            const capSensitive = toggle.checked;
+            
+            console.log('Comparing texts with capitalization sensitivity:', capSensitive);
+            console.log(`Reference: "${referenceText}"`);
+            console.log(`Input: "${userInput}"`);
+            
+            // Process the input
+            const result = processInput(referenceText, userInput);
+            
+            console.log('Comparison result:', result);
+            
+            // Display results
+            const resultContainer = document.getElementById('comparison-result');
+            
+            let html = `<strong>Reference:</strong> ${referenceText}<br>`;
+            html += `<strong>Input:</strong> ${userInput}<br>`;
+            html += `<strong>Capitalization Sensitive:</strong> ${capSensitive}<br><br>`;
+            
+            html += '<strong>Word-by-word comparison:</strong><br>';
+            html += '<table><tr><th>Expected Word</th><th>Input Word</th><th>Status</th><th>Similarity</th></tr>';
+            
+            result.words.forEach(w => {
+                html += `<tr>
+                    <td>${w.expected}</td>
+                    <td>${w.word || '(missing)'}</td>
+                    <td class="${w.status}">${w.status}</td>
+                    <td>${w.similarity.toFixed(2)}</td>
+                </tr>`;
+            });
+            
+            html += '</table>';
+            
+            if (result.extraWords && result.extraWords.length > 0) {
+                html += '<br><strong>Extra words:</strong><br>';
+                result.extraWords.forEach(w => {
+                    html += `<span class="extra">${w.word}</span> `;
+                });
+            }
+            
+            resultContainer.innerHTML = html;
+        });
+        
+        // Word test button
+        document.getElementById('word-test-btn').addEventListener('click', function() {
+            const expectedWord = document.getElementById('expected-word').value;
+            const actualWord = document.getElementById('actual-word').value;
+            const capSensitive = toggle.checked;
+            
+            console.log(`Testing words with capitalization sensitivity: ${capSensitive}`);
+            console.log(`Expected: "${expectedWord}", Actual: "${actualWord}"`);
+            
+            // Test with explicit setting
+            const result = findBestWordMatches(
+                [expectedWord], 
+                [actualWord], 
+                { capitalizationSensitive: capSensitive }
+            );
+            
+            console.log('Word match result:', result);
+            
+            // Display in both states for comparison
+            const oppositeSetting = !capSensitive;
+            const oppositeResult = findBestWordMatches(
+                [expectedWord], 
+                [actualWord], 
+                { capitalizationSensitive: oppositeSetting }
+            );
+            
+            const resultContainer = document.getElementById('word-result');
+            
+            let html = `<strong>Expected:</strong> ${expectedWord}<br>`;
+            html += `<strong>Actual:</strong> ${actualWord}<br><br>`;
+            
+            html += `<strong>With capitalizationSensitive=${capSensitive}:</strong><br>`;
+            html += `Status: <span class="${result.words[0].status}">${result.words[0].status}</span><br>`;
+            html += `Similarity: ${result.words[0].similarity.toFixed(2)}<br><br>`;
+            
+            html += `<strong>With capitalizationSensitive=${oppositeSetting} (opposite):</strong><br>`;
+            html += `Status: <span class="${oppositeResult.words[0].status}">${oppositeResult.words[0].status}</span><br>`;
+            html += `Similarity: ${oppositeResult.words[0].similarity.toFixed(2)}<br>`;
+            
+            resultContainer.innerHTML = html;
+        });
+        
+        // State buttons
+        document.getElementById('show-state-btn').addEventListener('click', function() {
+            const state = stateManager.getState();
+            document.getElementById('state-result').textContent = JSON.stringify(state, null, 2);
+        });
+        
+        document.getElementById('reset-state-btn').addEventListener('click', function() {
+            stateManager.resetState();
+            toggle.checked = false;
+            updateStatusDisplay();
+            document.getElementById('state-result').textContent = 'State has been reset to defaults.';
+            console.log('State has been reset to defaults');
+        });
+        
+        // Initial log
+        console.log('Debug panel initialized');
+        console.log('Current capitalization setting:', stateManager.getState('comparison').capitalizationSensitive);
+    </script>
+</body>
+</html>

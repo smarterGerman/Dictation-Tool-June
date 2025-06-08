@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capitalization Test: "Berlin" vs "berlin"</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-container {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        pre {
+            white-space: pre-wrap;
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .correct {
+            color: green;
+        }
+        .misspelled {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Capitalization Test: "Berlin" vs "berlin"</h1>
+    <p>This test focuses specifically on the scenario where the user types "berlin" (lowercase) instead of "Berlin" (proper case).</p>
+
+    <div class="test-container">
+        <h2>Test Setup</h2>
+        <div>
+            <label>
+                <input type="checkbox" id="cap-sensitive"> 
+                Capitalization Sensitive
+            </label>
+        </div>
+        <div>
+            <button id="run-test">Run Test</button>
+        </div>
+        
+        <div class="result">
+            <h3>Test Results</h3>
+            <div id="result-content">Click "Run Test" to see results</div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the necessary modules
+        import { findBestWordMatches } from './js/modules/textComparison/wordMatcher.js';
+        import stateManager from './js/modules/utils/stateManager.js';
+        
+        // Set up the test
+        document.getElementById('run-test').addEventListener('click', runTest);
+        document.getElementById('cap-sensitive').addEventListener('change', function() {
+            // Update state manager when checkbox changes
+            const isChecked = this.checked;
+            stateManager.updateState('comparison', { capitalizationSensitive: isChecked });
+            console.log(`Capitalization sensitivity set to: ${isChecked}`);
+        });
+        
+        // Initialize state if needed
+        if (stateManager.getState('comparison').capitalizationSensitive === undefined) {
+            stateManager.updateState('comparison', { capitalizationSensitive: false });
+        }
+        
+        // Set checkbox to match state
+        document.getElementById('cap-sensitive').checked = 
+            stateManager.getState('comparison').capitalizationSensitive === true;
+        
+        function runTest() {
+            // Core test scenario: Berlin vs berlin
+            const referenceWord = "Berlin"; 
+            const inputWord = "berlin";
+            
+            // Get setting from checkbox
+            const capitalizationSensitive = document.getElementById('cap-sensitive').checked;
+            console.log(`Running test with capitalizationSensitive=${capitalizationSensitive}`);
+            
+            // Run test both ways to compare
+            const withCapSensitive = findBestWordMatches(
+                [referenceWord], 
+                [inputWord], 
+                { capitalizationSensitive: true }
+            );
+            
+            const withoutCapSensitive = findBestWordMatches(
+                [referenceWord], 
+                [inputWord], 
+                { capitalizationSensitive: false }
+            );
+            
+            // Run with current setting
+            const withCurrentSetting = findBestWordMatches(
+                [referenceWord], 
+                [inputWord], 
+                { capitalizationSensitive: capitalizationSensitive }
+            );
+            
+            // Display results
+            const resultContent = document.getElementById('result-content');
+            
+            // Format the results
+            let html = `<h4>Test Case: "${referenceWord}" vs "${inputWord}"</h4>`;
+            html += `<p>Current setting: Capitalization Sensitive = <strong>${capitalizationSensitive}</strong></p>`;
+            
+            html += `<h4>Results with current setting (capitalizationSensitive=${capitalizationSensitive}):</h4>`;
+            html += formatResult(withCurrentSetting);
+            
+            html += `<h4>Comparison of both settings:</h4>`;
+            html += `<div style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <h5>With capitalizationSensitive=true:</h5>
+                    ${formatResult(withCapSensitive)}
+                </div>
+                <div style="flex: 1;">
+                    <h5>With capitalizationSensitive=false:</h5>
+                    ${formatResult(withoutCapSensitive)}
+                </div>
+            </div>`;
+            
+            resultContent.innerHTML = html;
+            
+            // Log to console for debugging
+            console.log("Test results:", {
+                withCapSensitive,
+                withoutCapSensitive,
+                withCurrentSetting
+            });
+        }
+        
+        function formatResult(result) {
+            if (!result || !result.words || result.words.length === 0) {
+                return "<p>No results available</p>";
+            }
+            
+            const word = result.words[0];
+            const status = word.status;
+            const statusClass = status === 'correct' ? 'correct' : 'misspelled';
+            
+            let html = `<div>
+                <p><strong>Status:</strong> <span class="${statusClass}">${status}</span></p>
+                <p><strong>Similarity:</strong> ${word.similarity.toFixed(2)}</p>
+            </div>`;
+            
+            html += `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            
+            return html;
+        }
+        
+        // Initial log
+        console.log("Test page loaded");
+        console.log("Current capitalization setting:", 
+                   stateManager.getState('comparison').capitalizationSensitive);
+    </script>
+</body>
+</html>

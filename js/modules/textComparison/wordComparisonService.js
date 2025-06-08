@@ -5,7 +5,6 @@
 import { transformSpecialCharacters, createTextNormalizer } from './textNormalizer.js';
 import { calculateSimilarityScore } from './similarityScoring.js';
 import { createLogger } from '../utils/logger.js';
-import stateManager from '../utils/stateManager.js';
 
 const logger = createLogger('wordComparisonService');
 
@@ -17,7 +16,7 @@ const logger = createLogger('wordComparisonService');
  * @returns {Object} Comparison result with match information
  */
 export function compareWords(inputWord, referenceWord, options = {}) {
-  const capitalizationSensitive = options.capitalizationSensitive ?? stateManager.getState('ui')?.capitalizationSensitive ?? false;
+  const capitalizationSensitive = options.capitalizationSensitive ?? false;
   try {
     // Input validation with detailed logging
     if (!inputWord && !referenceWord) {
@@ -90,11 +89,6 @@ export function compareWords(inputWord, referenceWord, options = {}) {
       similarity,
       capitalizationSensitive
     });
-    // Capitalization error detection
-    let capitalizationError = false;
-    if (capitalizationSensitive && isCleanMatch && inputWord !== referenceWord) {
-      capitalizationError = true;
-    }
     return {
       isMatch: isExactMatch || isCleanMatch,
       isExactMatch,
@@ -102,8 +96,7 @@ export function compareWords(inputWord, referenceWord, options = {}) {
       similarity,
       transformedInput,
       cleanInput,
-      cleanRef,
-      capitalizationError
+      cleanRef
     };
   } catch (error) {
     logger.error('Word comparison failed', { error, inputWord, referenceWord });

@@ -71,8 +71,7 @@ function displayHighlightedReference(containerElement, result, referenceText) {
       } else if (matchInfo.status === 'misspelled') {
         wordElement.classList.add('ref-word-misspelled');
         if (matchInfo.word) {
-          let capError = matchInfo.capitalizationError ? ' (capitalization error)' : '';
-          wordElement.setAttribute('title', `User typed: ${matchInfo.word}${capError}`);
+          wordElement.setAttribute('title', `User typed: ${matchInfo.word}`);
         }
       } else if (matchInfo.status === 'missing') {
         wordElement.classList.add('ref-word-missing');

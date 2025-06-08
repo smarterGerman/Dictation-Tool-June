@@ -73,19 +73,11 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
 
         // Determine status based on similarity
         const status = similarity >= 0.95 ? 'correct' : 'misspelled';
-
-        // Capitalization error detection
-        let capitalizationError = false;
-        if (capitalizationSensitive && status === 'correct' && expectedWords[i] !== actualWords[j]) {
-          capitalizationError = true;
-        }
-
         results[i] = {
           expected: expectedWords[i],
           word: actualWords[j],
-          status: capitalizationError ? 'misspelled' : status,
-          similarity: similarity,
-          capitalizationError
+          status: status,
+          similarity: similarity
         };
 
         break;

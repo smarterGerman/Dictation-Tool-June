@@ -96,14 +96,16 @@ function handleInputEvent(event) {
     // Track performance
     const startTime = performance.now();
     
-    const userInput = inputField.value || '';
+    // Transform user input for German special characters
+    const rawInput = inputField.value || '';
+    const userInput = transformSpecialCharacters(rawInput);
     const segment = getCurrentSegment();
     
     if (!segment) return;
     
     const referenceText = segment.text;
     
-    // Save user input for this segment
+    // Save user input for this segment (save transformed)
     saveUserInput(segment.index, userInput);
     
     // Update input field appearance
@@ -215,8 +217,8 @@ function updateHighlighting(userInput, referenceText, container) {
             container = document.getElementById(config.highlightContainerId);
         }
         if (!container) return null;
-        // Apply transformations to ensure consistency
-        const transformedInput = transformSpecialCharacters(userInput);
+        // User input is already transformed, so do not transform again
+        const transformedInput = userInput;
         // LOG: Transformed input
         console.log('[updateHighlighting] transformedInput', transformedInput);
         try {

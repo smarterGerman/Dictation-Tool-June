@@ -15,6 +15,7 @@ import stateManager from '../utils/stateManager.js';
  * @return {Object} - Detailed comparison results
  */
 export function processInput(referenceText, userInput) {
+  // userInput is expected to be already transformed (e.g., oe -> ö)
   // LOG: Entry
   console.log('[processInput] called', { referenceText, userInput });
   if (!referenceText) return { words: [], extraWords: [] };
@@ -70,7 +71,7 @@ export function processInput(referenceText, userInput) {
         ? correctWords / expectedWords.length 
         : 0
     },
-    inputText: userInput,
+    inputText: userInput, // already transformed
     referenceText: referenceText,
     
     // Add character position tracking
@@ -113,6 +114,7 @@ export function processInput(referenceText, userInput) {
  * @return {Object} - Detailed comparison results with character mapping
  */
 export function processInputWithCharacterTracking(referenceText, userInput) {
+  // userInput is expected to be already transformed (e.g., oe -> ö)
   // LOG: Entry
   console.log('[processInputWithCharacterTracking] called', { referenceText, userInput });
   const wordMatchResult = processInput(referenceText, userInput);

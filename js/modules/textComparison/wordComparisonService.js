@@ -2,7 +2,7 @@
  * Word Comparison Service
  * Provides enhanced word comparison functionality with robust error handling
  */
-import { transformSpecialCharacters, createTextNormalizer } from './textNormalizer.js';
+import { transformSpecialCharacters, createTextNormalizer, normalizeForComparison } from './textNormalizer.js';
 import { calculateSimilarityScore } from './similarityScoring.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -16,7 +16,14 @@ const logger = createLogger('wordComparisonService');
  * @returns {Object} Comparison result with match information
  */
 export function compareWords(inputWord, referenceWord, options = {}) {
-  const capitalizationSensitive = options.capitalizationSensitive ?? false;
+  if (!inputWord && !referenceWord) return { isMatch: true };
+  if (!inputWord || !referenceWord) return { isMatch: false };
+  const capitalizationSensitive = options.capitalizationSensitive === true;
+  const normInput = normalizeForComparison(inputWord, capitalizationSensitive);
+  const normRef = normalizeForComparison(referenceWord, capitalizationSensitive);
+  if (normInput.length <= 2 || normRef.length <= 2) {
+    console.log('[COMPARE WORDS] Short word normalization:', { normInput, normRef });
+  }
   try {
     // Input validation with detailed logging
     if (!inputWord && !referenceWord) {

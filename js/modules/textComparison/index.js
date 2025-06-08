@@ -5,7 +5,7 @@
 
 import { findBestWordMatches, generateHighlightedHTML } from './wordMatcher.js';
 import { calculateSimilarityScore, levenshteinDistance } from './similarityScoring.js';
-import { normalizeText, normalizeWord, transformSpecialCharacters, notifySegmentChange, getTimeSinceSegmentChange, createTextNormalizer } from './textNormalizer.js';
+import { normalizeText, normalizeWord, transformSpecialCharacters, notifySegmentChange, getTimeSinceSegmentChange, createTextNormalizer, normalizeForComparison } from './textNormalizer.js';
 import { processInput, processInputWithCharacterTracking } from './inputProcessor.js';
 import { createAlignment, DEFAULT_ALIGNMENT_RESULT } from './alignmentUtility.js';
 import { createAdvancedAlignment, alignWords } from './textAlignmentService.js';
@@ -57,5 +57,6 @@ export {
   
   // Word comparison functions
   compareWords,
-  findBestMatchingReferenceWord
+  findBestMatchingReferenceWord,
+  normalizeForComparison
 };

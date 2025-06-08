@@ -16,7 +16,7 @@
 // No ad-hoc regex or string replacements for normalization or special characters should be here.
 // All normalization should use transformSpecialCharacters, normalizeText, or createTextNormalizer from textNormalizer.js.
 
-import { transformSpecialCharacters, normalizeWord } from './textNormalizer.js';
+import { transformSpecialCharacters, normalizeWord, normalizeForComparison } from './textNormalizer.js';
 import { createLogger } from '../utils/logger.js';
 import stateManager from '../utils/stateManager.js';
 
@@ -54,6 +54,12 @@ export function createAlignment(inputWord, referenceWord) {
   if (!inputWord || !referenceWord) {
     logger.warn('Missing input for alignment', { inputWord, referenceWord });
     return { ...DEFAULT_ALIGNMENT_RESULT };
+  }
+  // Always normalize for comparison
+  const normInput = normalizeForComparison(inputWord);
+  const normRef = normalizeForComparison(referenceWord);
+  if (normInput.length <= 2 || normRef.length <= 2) {
+    logger.debug('[ALIGNMENT] Short word normalization:', { normInput, normRef });
   }
   
   try {
@@ -153,10 +159,14 @@ export function findBestAlignment(input, reference) {
     logger.warn('Missing input for Levenshtein alignment', { input, reference });
     return { ...DEFAULT_ALIGNMENT_RESULT };
   }
+  // Always normalize for comparison
+  const normInput = normalizeForComparison(input);
+  const normRef = normalizeForComparison(reference);
+  if (normInput.length <= 2 || normRef.length <= 2) {
+    logger.debug('[LEVENSHTEIN ALIGNMENT] Short word normalization:', { normInput, normRef });
+  }
   try {
     // Normalize both input and reference for robust comparison
-    const normInput = transformSpecialCharacters(input);
-    const normRef = transformSpecialCharacters(reference);
     const m = normInput.length;
     const n = normRef.length;
 

@@ -115,3 +115,27 @@
 - Document new issues as they're discovered
 - Proceed only when current step is stable
 - Maintain a change log for reference
+
+---
+
+# Refactoring: Consistent German Word Normalization and Matching (2025-06-08)
+
+## Summary
+
+- All word matching, placeholder mapping, and feedback logic now use a single normalization pipeline via `normalizeForComparison`.
+- This pipeline applies:
+  - German special character transforms (ae→ä, etc.)
+  - Only capital B in the middle/end of a word → ß
+  - Never ss→ß, never ä→ae, etc.
+  - Punctuation stripping
+  - Whitespace normalization
+  - Case sensitivity according to the Aa toggle
+- All modules (`wordMatcher.js`, `wordComparisonService.js`, `inputProcessor.js`, `uiManager.js`) now use this normalization for all word comparisons and UI feedback.
+- This guarantees robust, predictable, and user-aligned feedback for all input/reference combinations, including edge cases.
+
+## Implementation
+
+- Added/updated `normalizeForComparison` in `textNormalizer.js`.
+- Refactored all word matching and UI feedback logic to use this function.
+- Updated placeholder generation and mapping to use normalized forms.
+- All tests and UI scenarios should now behave consistently.

@@ -5,7 +5,7 @@
  */
 
 import { calculateSimilarityScore } from './similarityScoring.js';
-import { normalizeWord } from './textNormalizer.js';
+import { normalizeForComparison } from './textNormalizer.js';
 import stateManager from '../utils/stateManager.js';
 
 /**
@@ -34,9 +34,20 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
   // Capitalization sensitivity from options or stateManager
   const capitalizationSensitive = options.capitalizationSensitive ?? stateManager.getState('comparison').capitalizationSensitive ?? false;
 
-  // Create normalized versions of words for comparison
-  const normalizedExpected = expectedWords.map(w => normalizeWord(w));
-  const normalizedActual = actualWords.map(w => normalizeWord(w));
+  // Normalize all words for comparison
+  const normExpectedWords = expectedWords.map(w => normalizeForComparison(w));
+  const normActualWords = actualWords.map(w => normalizeForComparison(w));
+
+  normExpectedWords.forEach((w, i) => {
+    if (w.length <= 2) {
+      console.log('[MATCHER] Short expected word normalization:', { w, i });
+    }
+  });
+  normActualWords.forEach((w, i) => {
+    if (w.length <= 2) {
+      console.log('[MATCHER] Short actual word normalization:', { w, i });
+    }
+  });
 
   // Track which words have been matched
   const matchedExpected = new Array(expectedWords.length).fill(false);
@@ -46,15 +57,15 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
   const results = new Array(expectedWords.length);
 
   // First pass: find exact and close matches
-  for (let i = 0; i < normalizedExpected.length; i++) {
-    for (let j = 0; j < normalizedActual.length; j++) {
+  for (let i = 0; i < normExpectedWords.length; i++) {
+    for (let j = 0; j < normActualWords.length; j++) {
       if (matchedActual[j]) continue; // Skip already matched actual words
 
       // Use enhanced similarity scoring with all our new features
-      const similarity = calculateSimilarityScore(normalizedExpected[i], normalizedActual[j]);
+      const similarity = calculateSimilarityScore(normExpectedWords[i], normActualWords[j]);
 
       // Get a dynamic threshold based on word length and config
-      const wordLength = normalizedExpected[i].length;
+      const wordLength = normExpectedWords[i].length;
       let dynamicThreshold = 0.3; // Default threshold
 
       if (wordLength > 5) {

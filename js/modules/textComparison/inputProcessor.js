@@ -3,7 +3,7 @@
  * Combines text normalization, word matching, and similarity scoring
  */
 
-import { normalizeText } from './textNormalizer.js';
+import { normalizeText, normalizeForComparison } from './textNormalizer.js';
 import { findBestWordMatches } from './wordMatcher.js';
 import { findBestAlignment } from './alignmentUtility.js';
 import stateManager from '../utils/stateManager.js';
@@ -14,8 +14,13 @@ import stateManager from '../utils/stateManager.js';
  * @param {string} inputText - The text entered by the user
  * @return {Object} - Detailed comparison results
  */
-export function processInput(referenceText, userInput) {
-  // userInput is expected to be already transformed (e.g., oe -> ö)
+export function processInput(referenceText, userInput, options = {}) {
+  const capitalizationSensitive = options.capitalizationSensitive === true;
+  const normRef = normalizeForComparison(referenceText, capitalizationSensitive);
+  const normInput = normalizeForComparison(userInput, capitalizationSensitive);
+  const expectedWords = normRef.split(/\s+/).filter(Boolean);
+  const actualWords = normInput.split(/\s+/).filter(Boolean);
+
   // LOG: Entry
   console.log('[processInput] called', { referenceText, userInput });
   if (!referenceText) return { words: [], extraWords: [] };
@@ -35,19 +40,12 @@ export function processInput(referenceText, userInput) {
     };
   }
 
-  // Capitalization sensitivity from stateManager
-  const capitalizationSensitive = stateManager.getState('comparison').capitalizationSensitive ?? false;
-  
   // Enhanced logging for debugging
   console.log('[DEBUG] processInput capitalization check:', { 
     capitalizationSensitive, 
     stateValue: JSON.stringify(stateManager.getState('comparison')),
     timestamp: new Date().toISOString()
   });
-
-  // Split into words, preserving punctuation as part of words
-  const expectedWords = referenceText.trim().split(/\s+/);
-  const actualWords = userInput.trim().split(/\s+/);
 
   // LOG: Words split
   console.log('[processInput] expectedWords', expectedWords, 'actualWords', actualWords);
@@ -120,7 +118,13 @@ export function processInput(referenceText, userInput) {
  * @param {string} userInput - The text entered by the user
  * @return {Object} - Detailed comparison results with character mapping
  */
-export function processInputWithCharacterTracking(referenceText, userInput) {
+export function processInputWithCharacterTracking(referenceText, userInput, options = {}) {
+  const capitalizationSensitive = options.capitalizationSensitive === true;
+  const normRef = normalizeForComparison(referenceText, capitalizationSensitive);
+  const normInput = normalizeForComparison(userInput, capitalizationSensitive);
+  const expectedWords = normRef.split(/\s+/).filter(Boolean);
+  const actualWords = normInput.split(/\s+/).filter(Boolean);
+
   // userInput is expected to be already transformed (e.g., oe -> ö)
   // LOG: Entry
   console.log('[processInputWithCharacterTracking] called', { referenceText, userInput });

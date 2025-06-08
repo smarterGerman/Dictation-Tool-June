@@ -200,6 +200,32 @@ export function normalizeText(text) {
 }
 
 /**
+ * Normalize a word or text for comparison according to user rules:
+ * - German special char transforms (ae→ä, etc.)
+ * - Only capital B in the middle/end of a word → ß
+ * - Never ss→ß, never ä→ae, etc.
+ * - Strip all punctuation
+ * - Normalize whitespace
+ * - Case sensitivity controlled by argument
+ *
+ * @param {string} text - The text to normalize
+ * @param {boolean} [caseSensitive=false] - Whether to preserve case
+ * @returns {string} - Fully normalized text for comparison
+ */
+export function normalizeForComparison(text, caseSensitive = false) {
+  if (!text) return '';
+  // 1. Special char transforms
+  let result = transformSpecialCharacters(text);
+  // 2. Strip punctuation
+  result = result.replace(/[.,!?;:()\[\]{}"'«»„“”]/g, '');
+  // 3. Normalize whitespace
+  result = result.trim().replace(/\s+/g, ' ');
+  // 4. Case sensitivity
+  if (!caseSensitive) result = result.toLowerCase();
+  return result;
+}
+
+/**
  * Creates a text normalizer utility with methods for consistent text transformations
  * @returns {Object} Text normalizer utility with normalization functions
  */

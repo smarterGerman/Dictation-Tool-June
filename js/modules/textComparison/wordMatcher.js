@@ -7,6 +7,7 @@
 import { calculateSimilarityScore } from './similarityScoring.js';
 import { normalizeForComparison } from './textNormalizer.js';
 import stateManager from '../utils/stateManager.js';
+import { createAlignment as createAlignmentUtility } from './alignmentUtility.js';
 
 /**
  * Finds the best matches between expected words and actual user input
@@ -109,13 +110,19 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
         }
         
         // Add debug info
-        // console.log(`[CRITICAL DEBUG] Word "${expectedWords[i]}" vs "${actualWords[j]}": similarity=${similarity}, capSensitive=${capitalizationSensitive}, status=${status}`);
-          
+        // console.log(`[CRITICAL DEBUG] Word \\"${expectedWords[i]}\\" vs \\"${actualWords[j]}\\": similarity=${similarity}, capSensitive=${capitalizationSensitive}, status=${status}`);
+        
+        // Create alignment object using the utility
+        const alignment = createAlignmentUtility(normActualWords[j], normExpectedWords[i], actualWords[j], expectedWords[i]);
+
         results[i] = {
           expected: expectedWords[i],
+          expectedRaw: expectedWords[i], // Add raw expected word
           word: actualWords[j],
+          actualRaw: actualWords[j], // Add raw actual word
           status: status,
-          similarity: similarity
+          similarity: similarity,
+          alignment: alignment // Add alignment object
         };
         // LOG: Matcher output for each word
         console.log('[MATCHER] Word match:', {
@@ -133,9 +140,12 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
     if (!matchedExpected[i]) {
       results[i] = {
         expected: expectedWords[i],
+        expectedRaw: expectedWords[i], // Add raw expected word for consistency
         word: null,
+        actualRaw: null, // No actual word
         status: 'missing',
-        similarity: 0
+        similarity: 0,
+        alignment: null // No alignment for missing words
       };
     }
   }
@@ -145,9 +155,12 @@ export function findBestWordMatches(expectedWords, actualWords, options = {}) {
     .filter((word, index) => !matchedActual[index])
     .map(word => ({
       expected: null,
+      expectedRaw: null, // No expected word
       word: word,
+      actualRaw: word, // Raw actual word
       status: 'extra',
-      similarity: 0
+      similarity: 0,
+      alignment: null // No alignment for extra words
     }));
 
   return {

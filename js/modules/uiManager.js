@@ -350,12 +350,14 @@ export function updatePlaceholders(result, placeholderContainer) {
             } else {
               // No input for this reference letter (missing)
               letterSpan.textContent = '_';
-              letterSpan.className = 'letter-placeholder';
+              letterSpan.className = 'letter-placeholder revealed misspelled';
             }
           }
           // If input is longer than reference, add extra placeholders for extra letters
-          if (inputWord.length > letterPlaceholders.length) {
-            for (let i = letterPlaceholders.length; i < inputWord.length; i++) {
+          // Find input indices not mapped to any ref index
+          const mappedInputIndices = new Set(Object.keys(alignment && alignment.transformedToRefMap || {}).map(Number));
+          for (let i = 0; i < inputWord.length; i++) {
+            if (!mappedInputIndices.has(i)) {
               const extraSpan = document.createElement('span');
               extraSpan.className = 'letter-placeholder revealed misspelled';
               extraSpan.textContent = inputWord[i];
@@ -440,7 +442,7 @@ export function updateRawInputDisplay(rawInputDisplay, input) {
 /**
  * Updates the reference mapping display with highlighting for correct, misspelled, and missing words.
  * Ensures that all 'misspelled' words are colored red, regardless of capitalization or spelling error, and regardless of Aa toggle.
- * Adds a debug log before coloring to confirm the status.
+ * Also ensures that typed letters replace underscores rather than adding to them.
  * @param {HTMLElement} referenceMapRow - The reference mapping display element
  * @param {Object} result - The result from processInputWithCharacterTracking
  * @param {string} referenceText - The reference text
@@ -448,158 +450,176 @@ export function updateRawInputDisplay(rawInputDisplay, input) {
 export function updateReferenceMappingDisplay(referenceMapRow, result, referenceText) {
   try {
     if (!referenceMapRow) {
-      console.warn('[UI] Missing referenceMapRow in updateReferenceMappingDisplay');
       return;
     }
-    referenceMapRow.innerHTML = '';
+    referenceMapRow.innerHTML = ''; // Clear existing content
 
-    // Always use normalized, punctuation-stripped reference words
-    const refWordsRaw = referenceText ? referenceText.trim().split(/\s+/) : [];
-    const refWords = refWordsRaw.map(w => normalizeForComparison(w, false));
-    console.log('[UI] Normalized reference words:', refWords);
+    // Assuming referenceText is the source of truth for the words to display placeholders for.
+    const referenceWordsRaw = referenceText.split(/\\s+/).filter(w => w.length > 0);
 
-    if (!refWords.length) {
-      console.warn('[UI] No reference words after normalization');
-      return;
-    }
+    // Create new elements for each word in the reference text
+    (result.words || []).forEach((wordResult, wordIndex) => {
+      const currentExpectedRaw = wordResult.expectedRaw || referenceWordsRaw[wordIndex] || '';
+      const currentActualRaw = wordResult.actualRaw || '';
+      
+      const wordElement = document.createElement('span');
+      wordElement.className = 'word-placeholder'; // Base class
+      wordElement.classList.add(`word-${wordResult.status}`);
+      wordElement.dataset.expectedWord = currentExpectedRaw;
 
-    const inputWordsRaw = result.inputText ? result.inputText.trim().split(/\s+/) : [];
-    const inputWords = inputWordsRaw.map(w => normalizeForComparison(w, false));
-    console.log('[UI] Normalized input words:', inputWords);
-
-    function generatePlaceholdersForStrippedReference(refWords, inputWords) {
-      const container = document.createElement('div');
-      container.classList.add('reference-placeholders');
-      refWords.forEach((refWord, index) => {
-        // Find the matching input word for this reference word (if any)
-        let inputWord = '';
-        let matchIdx = -1;
-        inputWords.forEach((iw, iwIdx) => {
-          if (matchIdx === -1 && iw && iw.length > 0) {
-            // Use the same matching logic as below
-            if (iw === refWord || refWord.includes(iw) || iw.includes(refWord)) {
-              inputWord = iw;
-              matchIdx = iwIdx;
-            }
+      // For missing words, just display underscores
+      if (wordResult.status === 'missing') {
+        for (let i = 0; i < currentExpectedRaw.length; i++) {
+          const char = currentExpectedRaw[i];
+          if (/[.,!?;:()\[\]{}"'«»„""]/.test(char)) {
+            const puncSpan = document.createElement('span');
+            puncSpan.className = 'punctuation';
+            puncSpan.textContent = char;
+            wordElement.appendChild(puncSpan);
+          } else {
+            const letterSpan = document.createElement('span');
+            letterSpan.className = 'letter-placeholder';
+            letterSpan.textContent = '_';
+            wordElement.appendChild(letterSpan);
           }
+        }
+        referenceMapRow.appendChild(wordElement);
+        referenceMapRow.appendChild(document.createTextNode(' ')); // Space between words
+        return; // Continue to next wordResult
+      }
+
+      // If the word was attempted (correct or misspelled)
+      const alignment = wordResult.alignment || {};
+      
+      // Get alignment maps
+      const refToInput = alignment.refToInput || {}; // normRefIdx -> normInputIdx
+      const inputNormToOrigMap = alignment.inputNormToOrigMap || {};
+      const refNormToOrigMap = alignment.refNormToOrigMap || {};
+      
+      // Create reverse maps from original index to normalized index
+      const origRefToNormMap = {};
+      if (refNormToOrigMap) {
+        Object.entries(refNormToOrigMap).forEach(([norm, orig]) => {
+          origRefToNormMap[orig] = parseInt(norm);
         });
-        // If not found, just use the first unmatched input word
-        if (!inputWord && inputWords[index]) inputWord = inputWords[index];
-        const maxLen = Math.max(refWord.length, inputWord ? inputWord.length : 0);
-        const wordSpan = document.createElement('span');
-        wordSpan.classList.add('word-placeholder');
-        wordSpan.dataset.expectedWord = refWord;
-        for (let i = 0; i < maxLen; i++) {
-          const char = refWord[i] || '';
-          const letterSpan = document.createElement('span');
-          letterSpan.className = 'letter-placeholder';
-          letterSpan.textContent = '_';
-          letterSpan.dataset.position = i.toString();
-          letterSpan.dataset.letter = char;
-          wordSpan.appendChild(letterSpan);
+      }
+      
+      const displayedInputChars = new Set(); // Track which input characters have been handled
+      
+      // Process each character in the reference word
+      for (let origRefIdx = 0; origRefIdx < currentExpectedRaw.length; origRefIdx++) {
+        const refChar = currentExpectedRaw[origRefIdx];
+        
+        // Handle punctuation
+        if (/[.,!?;:()\[\]{}"'«»„""]/.test(refChar)) {
+          const puncSpan = document.createElement('span');
+          puncSpan.className = 'punctuation';
+          puncSpan.textContent = refChar;
+          wordElement.appendChild(puncSpan);
+          continue;
         }
-        container.appendChild(wordSpan);
-      });
-      return container;
-    }
-
-    const placeholderContainer = generatePlaceholdersForStrippedReference(refWords, inputWords);
-    if (!placeholderContainer) {
-      console.error('[UI] Failed to generate placeholders for reference text');
-      return;
-    }
-    referenceMapRow.appendChild(placeholderContainer);
-
-    // Ensure matchedRefIndices is declared in the correct scope
-    const matchedRefIndices = new Set();
-    console.log('DEBUG: matchedRefIndices initialized:', matchedRefIndices);
-
-    inputWords.forEach((inputWord, inputWordIndex) => {
-      if (!inputWord) return;
-      let bestMatchIndex = -1;
-      let bestMatchScore = 0;
-      let matchStatus = 'missing';
-      let matchResult = null;
-
-      refWords.forEach((refWord, refIndex) => {
-        // Debug log to check matchedRefIndices before usage
-        console.log('DEBUG: matchedRefIndices before has() call:', matchedRefIndices);
-        if (matchedRefIndices.has(refIndex)) return;
-        if (inputWord.length <= 2 || refWord.length <= 2) {
-          console.log('[UI] Short word normalization:', { inputWord, refWord });
-        }
-        const alignment = createAlignment(inputWord, refWord);
-        let score = 0;
-        if (inputWord === refWord) score = 1.0;
-        else if (refWord.includes(inputWord) || inputWord.includes(refWord)) score = 0.8;
-        else if (alignment && alignment.matchedIndices && alignment.matchedIndices.length > 0) {
-          score = alignment.matchedIndices.length / Math.max(inputWord.length, refWord.length);
-        }
-        if (score > bestMatchScore) {
-          bestMatchScore = score;
-          bestMatchIndex = refIndex;
-          matchStatus = score === 1.0 ? 'correct' : 'misspelled';
-          matchResult = { inputWord, refWord, score, alignment };
-        }
-      });
-
-      console.log('[UI] Word mapping:', { inputWord, bestMatchIndex, bestMatchScore, matchStatus, matchResult });
-
-      if (bestMatchIndex !== -1 && bestMatchScore > 0.3) {
-        matchedRefIndices.add(bestMatchIndex);
-        const wordElements = placeholderContainer.querySelectorAll('.word-placeholder');
-        if (bestMatchIndex < wordElements.length) {
-          const wordElement = wordElements[bestMatchIndex];
-          let letterPlaceholders = wordElement.querySelectorAll('.letter-placeholder');
-          // Defensive: handle short words (especially 2-letter words)
-          if (inputWord.length > letterPlaceholders.length) {
-            console.warn('[UI] Input word longer than reference word (possible extra char):', inputWord, refWords[bestMatchIndex]);
-          }
-          // Use alignment for per-letter feedback
-          const alignment = matchResult && matchResult.alignment ? matchResult.alignment : null;
-          const refToInput = {};
-          if (alignment && alignment.matchedIndices) {
-            alignment.matchedIndices.forEach(({ inputPos, refPos }) => {
-              refToInput[refPos] = inputPos;
-            });
-          }
-          // Ensure refWord is defined in this scope
-          const refWord = refWords[bestMatchIndex];
-          // Debug log before using refWord
-          console.log('[UI DEBUG] refWord in per-letter feedback block:', { refWord, bestMatchIndex, inputWord, letterPlaceholders });
-          // Show all user input letters, even if there are more than reference
-          for (let i = 0; i < letterPlaceholders.length; i++) {
-            const letterSpan = letterPlaceholders[i];
-            if (!letterSpan) continue;
-            if (i < inputWord.length) {
-              letterSpan.textContent = inputWord[i];
-              letterSpan.classList.add('revealed');
-              letterSpan.setAttribute('data-original-char', inputWord[i]);
-              if (i < refWord.length && inputWord[i] === refWord[i]) {
+        
+        // For regular characters, create a letter placeholder
+        const letterSpan = document.createElement('span');
+        letterSpan.className = 'letter-placeholder revealed'; // Always mark as revealed
+        
+        // Map from original reference index to normalized reference index
+        const normRefIdx = origRefToNormMap[origRefIdx] !== undefined ? origRefToNormMap[origRefIdx] : origRefIdx;
+        
+        // Check if this reference character has a matching input character
+        let matchFound = false;
+        
+        if (refToInput[normRefIdx] !== undefined) {
+          const normInputIdx = refToInput[normRefIdx];
+          if (normInputIdx !== undefined) {
+            // Map from normalized input index to original input index
+            const origInputIdx = inputNormToOrigMap[normInputIdx] !== undefined ? inputNormToOrigMap[normInputIdx] : normInputIdx;
+            
+            if (origInputIdx !== undefined && origInputIdx < currentActualRaw.length) {
+              // We found a matching input character - show it instead of an underscore
+              const inputChar = currentActualRaw[origInputIdx];
+              letterSpan.textContent = inputChar;
+              displayedInputChars.add(origInputIdx);
+              matchFound = true;
+              
+              // Check if this character is correct or misspelled
+              const normalizedRefWord = wordResult.expected || '';
+              const normalizedInputWord = wordResult.actual || '';
+              
+              if (normalizedRefWord[normRefIdx] && 
+                  normalizedInputWord[normInputIdx] && 
+                  normalizedRefWord[normRefIdx] === normalizedInputWord[normInputIdx]) {
                 letterSpan.classList.add('correct');
               } else {
                 letterSpan.classList.add('misspelled');
-                console.log('[UI] Misspelled letter:', {
-                  inputChar: inputWord[i],
-                  refChar: refWord[i],
-                  word: inputWord,
-                  refWord: refWord
-                });
               }
-            } else {
-              // Extra input letter (beyond reference length)
-              letterSpan.textContent = inputWord[i];
-              letterSpan.className = 'letter-placeholder revealed misspelled';
-              letterSpan.setAttribute('data-original-char', inputWord[i]);
             }
           }
         }
-      } else {
-        console.warn('[UI] No match found for input word:', inputWord);
+        
+        // If no match was found, show an underscore as a placeholder for this missing character
+        if (!matchFound) {
+          letterSpan.textContent = '_';
+          letterSpan.classList.add('misspelled');
+        }
+        
+        wordElement.appendChild(letterSpan);
       }
+      
+      // Show any extra characters that weren't matched to the reference
+      if (currentActualRaw) {
+        for (let origInputIdx = 0; origInputIdx < currentActualRaw.length; origInputIdx++) {
+          if (!displayedInputChars.has(origInputIdx)) {
+            // This input character wasn't used - show it as an extra character
+            const extraChar = currentActualRaw[origInputIdx];
+            const extraSpan = document.createElement('span');
+            extraSpan.className = 'letter-placeholder revealed misspelled extra-letter';
+            extraSpan.textContent = extraChar;
+            wordElement.appendChild(extraSpan);
+          }
+        }
+      }
+      
+      referenceMapRow.appendChild(wordElement);
+      referenceMapRow.appendChild(document.createTextNode(' ')); // Space between words
     });
+
+    // Handle extra input words (words not matched to any reference word)
+    if (result.extraWords && result.extraWords.length > 0) {
+      const extraWordsContainer = document.createElement('div');
+      extraWordsContainer.className = 'extra-words-container';
+      
+      const extraLabel = document.createElement('span');
+      extraLabel.textContent = 'Extra: ';
+      extraWordsContainer.appendChild(extraLabel);
+      
+      result.extraWords.forEach(extraWordObj => {
+        const wordSpan = document.createElement('span');
+        wordSpan.className = 'word-extra'; 
+        
+        // Use the raw version of the extra word if available
+        const rawExtraWord = extraWordObj.actualRaw || extraWordObj.word || '';
+        
+        // Create a span for each character in the extra word
+        for (const char of rawExtraWord) {
+          const charSpan = document.createElement('span');
+          charSpan.className = 'letter-placeholder revealed misspelled';
+          charSpan.textContent = char;
+          wordSpan.appendChild(charSpan);
+        }
+        
+        extraWordsContainer.appendChild(wordSpan);
+        extraWordsContainer.appendChild(document.createTextNode(' '));
+      });
+      
+      referenceMapRow.appendChild(extraWordsContainer);
+    }
   } catch (error) {
     console.error('[UI] Error in updateReferenceMappingDisplay:', error);
+    // Fallback display if something goes wrong
+    if (referenceMapRow && result) {
+      referenceMapRow.textContent = 'Error rendering feedback';
+    }
   }
 }
 

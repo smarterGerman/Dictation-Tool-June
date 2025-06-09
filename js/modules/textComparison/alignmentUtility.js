@@ -51,6 +51,7 @@ export const DEFAULT_ALIGNMENT_RESULT = {
  * @returns {AlignmentResult} Alignment result with mapping information
  */
 export function createAlignment(inputWord, referenceWord) {
+  console.log('[DEBUG][createAlignment] inputWord:', inputWord, 'referenceWord:', referenceWord);
   if (!inputWord || !referenceWord) {
     logger.warn('Missing input for alignment', { inputWord, referenceWord });
     return { ...DEFAULT_ALIGNMENT_RESULT };
@@ -58,10 +59,10 @@ export function createAlignment(inputWord, referenceWord) {
   // Always normalize for comparison
   const normInput = normalizeForComparison(inputWord);
   const normRef = normalizeForComparison(referenceWord);
+  console.log('[DEBUG][createAlignment] normInput:', normInput, 'normRef:', normRef);
   if (normInput.length <= 2 || normRef.length <= 2) {
     logger.debug('[ALIGNMENT] Short word normalization:', { normInput, normRef });
   }
-  
   try {
     logger.debug('Creating alignment between', { inputWord, referenceWord });
     
@@ -136,6 +137,7 @@ export function createAlignment(inputWord, referenceWord) {
       }
     }
     
+    console.log('[DEBUG][createAlignment] alignment result:', result);
     logger.debug('Created alignment result', { 
       matchCount: result.matchedIndices.length,
       isSubstring: result.isSubstringMatch 
